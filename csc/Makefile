@@ -1,6 +1,8 @@
-SUBDIR=./code
-Make=make
-subsystem:
-	cd $(SUBDIR)&&$(MAKE)
+code	:=code
+.PHONY: code fibo $(code) clean
+fibo: $(code)
+	gcc ./code/main.o ./code/fibo.o -o fibo
+$(code):
+	make --directory=$@
 clean:
-	cd $(SUBDIR) && make clean
+	rm -f ./code/*.o
