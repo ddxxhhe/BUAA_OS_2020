@@ -146,7 +146,7 @@ lp_Print(void (*output)(void *, char *, int),
 			Think the difference between case 'd' and others. (hint: negFlag).
 		*/
 
-	    lenth = PrintNum(buf, num, 10, 0, width, ladjust, padc, 0); 
+	    length = PrintNum(buf, num, 10, 0, width, ladjust, padc, 0); 
 	    OUTPUT(arg, buf, length);
 	    break;
 
