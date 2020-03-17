@@ -45,11 +45,15 @@ int is_elf_format(u_char *binary)
 */
 
 uint32_t Reverse32(uint32_t x){
-	uint16_t num1 = (x & 0xffff0000) >> 16;
-	uint16_t num11 = ((num1 & 0xff00) >> 8) | ((num1 & 0xff) << 8);
-	uint16_t num2 = ((x & 0xffff) << 16);
-	uint16_t num22 = ((num2 & 0xff00) >> 8) | ((num2 & 0xff) << 8);
-	uint32_t num = num11 | num22;
+//	uint16_t num1 = (x & 0xffff0000) >> 16;
+//	uint16_t num11 = ((num1 & 0xff00) >> 8) | ((num1 & 0xff) << 8);
+//	uint16_t num2 = ((x & 0xffff) << 16);
+//	uint16_t num22 = ((num2 & 0xff00) >> 8) | ((num2 & 0xff) << 8);
+//	uint32_t num = num11 | num22;
+	uint32_t num = ((((uint32_t)(x) & 0xff000000) >> 24) |\
+			(((uint32_t)(x) & 0x00ff0000) >> 8)  |\
+			(((uint32_t)(x) & 0x0000ff00) << 8)  |\
+			(((uint32_t)(x) & 0x000000ff) << 24));
 	return num;
 }
 
@@ -101,10 +105,6 @@ int readelf(u_char *binary, int size)
 			printf("%d:0x%x,0x%x\n",Nr,Reverse32(phdr->p_filesz),Reverse32(phdr->p_memsz));
 			phdr++;
 		}
-	}
-
-	else{
-		printf("illegal input");
 	}
 	}
         return 0;
