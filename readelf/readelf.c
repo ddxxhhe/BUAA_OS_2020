@@ -44,26 +44,18 @@ int is_elf_format(u_char *binary)
     Exercise 1.2. Please complete func "readelf". 
 */
 
-unsigned int Reverse32(unsigned int num){
-	unsigned int ret = 0;
-	int i;
-	for(i = 0;i < 32;i++){
-		ret <<= 1;
-		ret |= num&1;
-		num >>= 1;
-	}
-	return ret;
+uint32_t Reverse32(uint32_t x){
+	uint16_t num1 = (x & 0xffff0000) >> 16;
+	uint16_t num11 = ((num1 & 0xff00) >> 8) | ((num1 & 0xff) << 8);
+	uint16_t num2 = ((x & 0xffff) << 16);
+	uint16_t num22 = ((num2 & 0xff00) >> 8) | ((num2 & 0xff) << 8);
+	uint32_t num = num11 | num22;
+	return num;
 }
 
-unsigned int Reverse16(unsigned int num){
-	unsigned int ret = 0;
-	int i;
-	for(i = 0;i < 16;i++){
-		ret <<= 1;
-		ret |= num&1;
-		num >>= 1;
-	}
-	return ret;
+uint16_t Reverse16(uint16_t x){
+	uint16_t num = (((x & 0xff00) >> 8) | ((x & 0xff) << 8));
+	return num;
 }
 
 int readelf(u_char *binary, int size)
@@ -99,10 +91,13 @@ int readelf(u_char *binary, int size)
 //		printf("%d\n",ehdr->e_phnum);
 		ph_entry_count = Reverse16(ehdr->e_phnum);
 		ph_entry_size = Reverse16(ehdr->e_phentsize);
+//		printf("%x\n",ehdr->e_phoff);
+//		printf("%x\n",Reverse32(ehdr->e_phoff));
 		ptr_ph_table = (u_char *)(((u_char *)ehdr) + Reverse32(ehdr->e_phoff));
 //		printf("%d",ph_entry_count);
 		phdr = (Elf32_Phdr *)(ptr_ph_table);
 		for(Nr = 0;Nr < ph_entry_count;Nr++){
+//			printf("%x\n",phdr->p_filesz);
 			printf("%d:0x%x,0x%x\n",Nr,Reverse32(phdr->p_filesz),Reverse32(phdr->p_memsz));
 			phdr++;
 		}
