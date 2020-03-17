@@ -43,39 +43,69 @@ int is_elf_format(u_char *binary)
 /*
     Exercise 1.2. Please complete func "readelf". 
 */
+
+unsigned int Reverse32(unsigned int num){
+	unsigned int ret = 0;
+	int i;
+	for(i = 0;i < 32;i++){
+		ret <<= 1;
+		ret |= num&1;
+		num >>= 1;
+	}
+	return ret;
+}
+
+unsigned int Reverse16(unsigned int num){
+	unsigned int ret = 0;
+	int i;
+	for(i = 0;i < 32;i++){
+		ret <<= 1;
+		ret |= num&1;
+		num >>= 1;
+	}
+	return ret;
+}
+
 int readelf(u_char *binary, int size)
 {
         Elf32_Ehdr *ehdr = (Elf32_Ehdr *)binary;
 
         int Nr;
 
-        Elf32_Shdr *shdr = NULL;
+	Elf32_Phdr *phdr = NULL;
+	u_char *ptr_ph_table = NULL;
 
-        u_char *ptr_sh_table = NULL; //type:u_char *
-        Elf32_Half sh_entry_count;
-        Elf32_Half sh_entry_size;
-
+	Elf32_Half ph_entry_count;
+	Elf32_Half ph_entry_size;
 
         // check whether `binary` is a ELF file.
         if (size < 4 || !is_elf_format(binary)) {
                 printf("not a standard elf format\n");
                 return 0;
         }else{
+	ph_entry_count = ehdr->e_phnum;
+	ph_entry_size = ehdr->e_phentsize;
+	ptr_ph_table = (u_char *)(((u_char *)ehdr) + ehdr->e_phoff);
+	phdr = (Elf32_Phdr *)(ptr_ph_table);
 
-        // get section table addr, section header number and section header size.
-	sh_entry_count = ehdr->e_shnum;
-	sh_entry_size = ehdr->e_shentsize;
-	ptr_sh_table = (u_char *)(((u_char *)ehdr) + ehdr->e_shoff);
-
-        // for each section header, output section number and section addr. 
-        // hint: section number starts at 0.
-	shdr = (Elf32_Shdr *)(ptr_sh_table);
-	for(Nr = 0;Nr < sh_entry_count;Nr++){
-		printf("%d:0x%x\n",Nr,shdr->sh_addr);
-		shdr++;
-	}
+	if(ehdr->e_ident[5] == 1){
+	for(Nr = 0;Nr < ph_entry_count;Nr++){
+		printf("%d:0x%x,0x%x\n",Nr,phdr->p_filesz,phdr->p_memsz);
+		phdr++;
+		}
 	}
 
+	else if(ehdr->e_ident[5] == 2){
+		ph_entry_count = Reverse16(ph_entry_count);
+		ph_entry_size = Reverse16(ph_entry_size);
+		ptr_ph_table = (u_char *)(((u_char *)ehdr) + Reverse32(ehdr->e_phoff));
+		phdr = (Elf32_Phdr *)(ptr_ph_table);
+		for(Nr = 0;Nr < ph_entry_count;Nr++){
+			printf("%d:0x%x,0x%x\n",Nr,Reverse32(phdr->p_filesz),Reverse32(phdr->p_memsz));
+			phdr++;
+		}
+	}
+	}
         return 0;
 }
 
