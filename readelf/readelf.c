@@ -58,7 +58,7 @@ unsigned int Reverse32(unsigned int num){
 unsigned int Reverse16(unsigned int num){
 	unsigned int ret = 0;
 	int i;
-	for(i = 0;i < 32;i++){
+	for(i = 0;i < 16;i++){
 		ret <<= 1;
 		ret |= num&1;
 		num >>= 1;
@@ -83,12 +83,12 @@ int readelf(u_char *binary, int size)
                 printf("not a standard elf format\n");
                 return 0;
         }else{
+
+	if(ehdr->e_ident[5] == 1){
 	ph_entry_count = ehdr->e_phnum;
 	ph_entry_size = ehdr->e_phentsize;
 	ptr_ph_table = (u_char *)(((u_char *)ehdr) + ehdr->e_phoff);
-	phdr = (Elf32_Phdr *)(ptr_ph_table);
-
-	if(ehdr->e_ident[5] == 1){
+	phdr = (Elf32_Phdr *)(ptr_ph_table);	
 	for(Nr = 0;Nr < ph_entry_count;Nr++){
 		printf("%d:0x%x,0x%x\n",Nr,phdr->p_filesz,phdr->p_memsz);
 		phdr++;
@@ -96,14 +96,20 @@ int readelf(u_char *binary, int size)
 	}
 
 	else if(ehdr->e_ident[5] == 2){
-		ph_entry_count = Reverse16(ph_entry_count);
-		ph_entry_size = Reverse16(ph_entry_size);
+//		printf("%d\n",ehdr->e_phnum);
+		ph_entry_count = Reverse16(ehdr->e_phnum);
+		ph_entry_size = Reverse16(ehdr->e_phentsize);
 		ptr_ph_table = (u_char *)(((u_char *)ehdr) + Reverse32(ehdr->e_phoff));
+//		printf("%d",ph_entry_count);
 		phdr = (Elf32_Phdr *)(ptr_ph_table);
 		for(Nr = 0;Nr < ph_entry_count;Nr++){
 			printf("%d:0x%x,0x%x\n",Nr,Reverse32(phdr->p_filesz),Reverse32(phdr->p_memsz));
 			phdr++;
 		}
+	}
+
+	else{
+		printf("illegal input");
 	}
 	}
         return 0;
