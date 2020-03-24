@@ -187,14 +187,14 @@ page_init(void)
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
     int i = 0;
-    int j = 0;
+    int j = n;
     for(i = 0;i < n;i++){ 
 	(&pages[i])->pp_ref = 1;
     }
     /* Step 4: Mark the other memory as free. */
-    for(j = n;j<(npage-1);j++){
+    for(j = n;j < npage;j++){
 	(&pages[j])->pp_ref = 0;
-	LIST_INSERT_HEAD(&page_free_list,&pages[j],pp_link);
+	LIST_INSERT_HEAD(&page_free_list, &pages[j], pp_link);
     }
 }
 
@@ -222,8 +222,10 @@ page_alloc(struct Page **pp)
 	return -E_NO_MEM;
     } else {
 //	ppage_temp = LIST_NEXT(&page_free_list, ppage_temp->pp_link);
+	ppage_temp = LIST_FIRST(&page_free_list);
+	LIST_REMOVE(ppage_temp, pp_link);	
 	*pp = ppage_temp;
-	bzero(*pp, 4*1024);
+	bzero((void *)page2kva(ppage_temp), BY2PG);
 	return 0;	
     }
 	  
@@ -242,16 +244,18 @@ page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
     if (pp->pp_ref > 0){
-	;
+	return;
     }
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
-    else  if (pp->pp_ref == 0) {
-	LIST_INSERT_TAIL(&page_free_list, pp, pp_link);
+    else if (pp->pp_ref == 0) {
+//	LIST_INSERT_TAIL(&page_free_list, pp, pp_link);
+	return;
     }
     /* If the value of `pp_ref` less than 0, some error must occurred before,
      * so PANIC !!! */
-    else if (pp->pp_ref <= 0) {
-    panic("cgh:pp->pp_ref is less than zero\n");
+    else {
+    	panic("cgh:pp->pp_ref is less than zero\n");
+	return;
     }
 }
 
