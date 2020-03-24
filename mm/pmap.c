@@ -26,7 +26,10 @@ void mips_detect_memory()
 {
     /* Step 1: Initialize basemem.
      * (When use real computer, CMOS tells us how many kilobytes there are). */
-
+    basemem = 0x4000000;
+    maxpa = 0x4000000;
+    extmem = 0x0;
+    npage = 0x4000;
     // Step 2: Calculate corresponding npage value.
 
     printf("Physical memory: %dK available, ", (int)(maxpa / 1024));
@@ -174,16 +177,25 @@ page_init(void)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
-
+    LIST_INIT(&page_free_list);
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
 
+   int used = PADDR(freemem); //used memory or use PADDR to convert the va to pa
+   int n = used / BY2PG; //the number of used pages
 
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
-
-
+    int i = 0;
+    int j = 0;
+    for(i = 0;i < n;i++){ 
+	(&pages[i])->pp_ref = 1;
+    }
     /* Step 4: Mark the other memory as free. */
+    for(j = n;j<(npage-1);j++){
+	(&pages[j])->pp_ref = 0;
+	LIST_INSERT_HEAD(&page_free_list,&pages[j],pp_link);
+    }
 }
 
 /*Overview:
@@ -206,8 +218,15 @@ page_alloc(struct Page **pp)
     struct Page *ppage_temp;
 
     /* Step 1: Get a page from free memory. If fails, return the error code.*/
-
-
+    if (PADDR(freemem) >= maxpa) {
+	return -E_NO_MEM;
+    } else {
+//	ppage_temp = LIST_NEXT(&page_free_list, ppage_temp->pp_link);
+	*pp = ppage_temp;
+	bzero(*pp, 4*1024);
+	return 0;	
+    }
+	  
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
 
@@ -222,14 +241,18 @@ void
 page_free(struct Page *pp)
 {
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
-
-
+    if (pp->pp_ref > 0){
+	;
+    }
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
-
-
+    else  if (pp->pp_ref == 0) {
+	LIST_INSERT_TAIL(&page_free_list, pp, pp_link);
+    }
     /* If the value of `pp_ref` less than 0, some error must occurred before,
      * so PANIC !!! */
+    else if (pp->pp_ref <= 0) {
     panic("cgh:pp->pp_ref is less than zero\n");
+    }
 }
 
 /*Overview:
