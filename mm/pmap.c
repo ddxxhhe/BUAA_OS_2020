@@ -181,21 +181,31 @@ page_init(void)
 
     /* Step 2: Align `freemem` up to multiple of BY2PG. */
 
-   int used = PADDR(freemem); //used memory or use PADDR to convert the va to pa
-   int n = used / BY2PG; //the number of used pages
-
+//   int used = PADDR(freemem); //used memory or use PADDR to convert the va to pa
+//   int n = used / BY2PG; //the number of used pages
+    freemem = ROUND(freemem, BY2PG);
+    
     /* Step 3: Mark all memory blow `freemem` as used(set `pp_ref`
      * filed to 1) */
     int i = 0;
-    int j = n;
-    for(i = 0;i < n;i++){ 
-	(&pages[i])->pp_ref = 1;
-    }
+//    int j = n;
+//    for(i = 0;i < n;i++){ 
+//	(&pages[i])->pp_ref = 1;
+//    }
     /* Step 4: Mark the other memory as free. */
-    for(j = n;j < npage;j++){
-	(&pages[j])->pp_ref = 0;
-	LIST_INSERT_HEAD(&page_free_list, &pages[j], pp_link);
-    }
+//    for(j = n;j < npage;j++){
+//	(&pages[j])->pp_ref = 0;
+//	LIST_INSERT_HEAD(&page_free_list, &pages[j], pp_link);
+//    }
+    for(i = 0;i < npage;i++) {
+	if (page2kva(&pages[i]) < freemem) {
+		(&pages[i])->pp_ref = 1;
+	} else {
+		(&pages[i])->pp_ref = 0;
+		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+	}
+    }    
+
 }
 
 /*Overview:
@@ -218,21 +228,23 @@ page_alloc(struct Page **pp)
     struct Page *ppage_temp;
 
     /* Step 1: Get a page from free memory. If fails, return the error code.*/
-    if (PADDR(freemem) >= maxpa) {
+//    ppage_temp = LIST_FIRST(&page_free_list);
+    if (LIST_EMPTY(&page_free_list)){
 	return -E_NO_MEM;
-    } else {
-//	ppage_temp = LIST_NEXT(&page_free_list, ppage_temp->pp_link);
+    }  else {
+//	ppage_temp = LIST_NEXT(&page_free_list, ppage_temp->pp_link);	
+//	printf("hh\n");
 	ppage_temp = LIST_FIRST(&page_free_list);
 	LIST_REMOVE(ppage_temp, pp_link);	
-	*pp = ppage_temp;
 	bzero((void *)page2kva(ppage_temp), BY2PG);
+	*pp = ppage_temp;
 	return 0;	
     }
 	  
     /* Step 2: Initialize this page.
      * Hint: use `bzero`. */
 
-
+    
 }
 
 /*Overview:
@@ -242,13 +254,19 @@ page_alloc(struct Page **pp)
 void
 page_free(struct Page *pp)
 {
+//    printf("begin\n");
+//    printf("%d",pp->pp_ref);
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
     if (pp->pp_ref > 0){
+//	printf("hh");
+//	printf("1\n");
 	return;
     }
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
     else if (pp->pp_ref == 0) {
-//	LIST_INSERT_TAIL(&page_free_list, pp, pp_link);
+//	printf("2\n");
+	LIST_INSERT_HEAD(&page_free_list, pp, pp_link);
+//	printf("end\n");
 	return;
     }
     /* If the value of `pp_ref` less than 0, some error must occurred before,
@@ -448,18 +466,28 @@ physical_memory_manage_check(void)
     fl = page_free_list;
     // now this page_free list must be empty!!!!
     LIST_INIT(&page_free_list);
+
+//    printf("the init function is ready");
+
     // should be no free memory
     assert(page_alloc(&pp) == -E_NO_MEM);
+
+//    printf("the alloc function is ready\n");
 
     temp = (int*)page2kva(pp0);
     //write 1000 to pp0
     *temp = 1000;
     // free pp0
     page_free(pp0);
+
+//    printf("the free function is ready");
+
     printf("The number in address temp is %d\n",*temp);
 
     // alloc again
+//    printf("1\n");
     assert(page_alloc(&pp0) == 0);
+//    printf("2\n");
     assert(pp0);
 
     // pp0 should not change
@@ -489,6 +517,8 @@ physical_memory_manage_check(void)
 	}
 	p = LIST_FIRST(&test_free);
 	int answer1[]={0,1,2,3,4,5,6,7,8,9};
+//	assert(p==NULL);
+//	printf("ooo\n");
 	assert(p!=NULL);
 	while(p!=NULL)
 	{
