@@ -93,15 +93,20 @@ static Pte *boot_pgdir_walk(Pde *pgdir, u_long va, int create)
     /* Step 1: Get the corresponding page directory entry and page table. */
     /* Hint: Use KADDR and PTE_ADDR to get the page table from page directory
      * entry value. */
-
+    pgdir_entryp = &pgdir[PDX(va)];
+    pgtable = KADDR(PTE_ADDR(*pgdir_entryp));
 
     /* Step 2: If the corresponding page table is not exist and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table. */
-
+    if (((*pgtable_entry) & PTE_V == 0) && create == 1) {
+	pgtable = (Pte *)alloc(BY2PG, BY2PG, 1);
+	*pgdir_entryp = PADDR(pgtable)|PTE_V;
+    }
 
     /* Step 3: Get the page table entry for `va`, and return it. */
-
+    pgtable_entry = &pgtable[PTX(va)];
+    return pgtable_entry;
 
 }
 
@@ -119,12 +124,17 @@ void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm)
     Pte *pgtable_entry;
 
     /* Step 1: Check if `size` is a multiple of BY2PG. */
-
+    if ( size % BY2PG != 0) {
+	return;
+    }
 
     /* Step 2: Map virtual address space to physical address. */
     /* Hint: Use `boot_pgdir_walk` to get the page table entry of virtual address `va`. */
-
-
+    for (i = 0;i < (size/BY2PG);i++) {
+	va_temp = va + i*BY2PG;
+	boot_pgdir_walk(pgdir, va_temp, 1);
+	*pgtable_entry = (pa + i*BY2PG)|perm|PTE_V;
+    }
 }
 
 /* Overview:
@@ -258,15 +268,11 @@ page_free(struct Page *pp)
 //    printf("%d",pp->pp_ref);
     /* Step 1: If there's still virtual address refers to this page, do nothing. */
     if (pp->pp_ref > 0){
-//	printf("hh");
-//	printf("1\n");
 	return;
     }
     /* Step 2: If the `pp_ref` reaches to 0, mark this page as free and return. */
     else if (pp->pp_ref == 0) {
-//	printf("2\n");
 	LIST_INSERT_HEAD(&page_free_list, pp, pp_link);
-//	printf("end\n");
 	return;
     }
     /* If the value of `pp_ref` less than 0, some error must occurred before,
@@ -301,16 +307,25 @@ pgdir_walk(Pde *pgdir, u_long va, int create, Pte **ppte)
     struct Page *ppage;
 
     /* Step 1: Get the corresponding page directory entry and page table. */
-
+    pgdir_entryp = &pgdir[PDX(va)];
+    pgtable = KADDR(PTE_ADDR(*pgdir_entryp));
 
     /* Step 2: If the corresponding page table is not exist(valid) and parameter `create`
      * is set, create one. And set the correct permission bits for this new page
      * table.
      * When creating new page table, maybe out of memory. */
-
+    if (((*pgtable) & PTE_V == 0) && create == 1) {
+	if (page_alloc(&ppage) == -E_NO_MEM) {
+	    return -E_NO_MEM;
+    } else {
+	    ppage->pp_ref += 1;
+	    pgtable =(Pte *)(page2kva(ppage));
+	    *pgdir_entryp = PADDR(pgtable)|PTE_V;
+    }	
+}
 
     /* Step 3: Set the page table entry to `*ppte` as return value. */
-
+    *ppte = &pgtable[PTX(va)];
 
     return 0;
 }
@@ -345,18 +360,18 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
             return 0;
         }
     }
-
     /* Step 2: Update TLB. */
-
     /* hint: use tlb_invalidate function */
-
-
+    tlb_invalidate(pgdir, va);
     /* Step 3: Do check, re-get page table entry to validate the insertion. */
-
+    int ret = pgdir_walk(pgdir, va, 1, &pgtable_entry);
     /* Step 3.1 Check if the page can be insert, if can’t return -E_NO_MEM */
-
+    if (ret == -E_NO_MEM) {
+	return -E_NO_MEM;
+    }
     /* Step 3.2 Insert page and increment the pp_ref */
-
+    *pgtable_entry = (page2pa(pp) | PERM);
+    pp->pp_ref += 1;
     return 0;
 }
 
@@ -467,12 +482,8 @@ physical_memory_manage_check(void)
     // now this page_free list must be empty!!!!
     LIST_INIT(&page_free_list);
 
-//    printf("the init function is ready");
-
     // should be no free memory
     assert(page_alloc(&pp) == -E_NO_MEM);
-
-//    printf("the alloc function is ready\n");
 
     temp = (int*)page2kva(pp0);
     //write 1000 to pp0
@@ -480,14 +491,10 @@ physical_memory_manage_check(void)
     // free pp0
     page_free(pp0);
 
-//    printf("the free function is ready");
-
     printf("The number in address temp is %d\n",*temp);
 
     // alloc again
-//    printf("1\n");
     assert(page_alloc(&pp0) == 0);
-//    printf("2\n");
     assert(pp0);
 
     // pp0 should not change
@@ -510,15 +517,13 @@ physical_memory_manage_check(void)
 	for(i=0;i<10;i++) {
 		test_pages[i].pp_ref=i;
 		//test_pages[i].pp_link=NULL;
-		//printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
+//		printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
 		LIST_INSERT_TAIL(&test_free,&test_pages[i],pp_link);
-		//printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
+//		printf("0x%x  0x%x\n",&test_pages[i], test_pages[i].pp_link.le_next);
 
 	}
 	p = LIST_FIRST(&test_free);
 	int answer1[]={0,1,2,3,4,5,6,7,8,9};
-//	assert(p==NULL);
-//	printf("ooo\n");
 	assert(p!=NULL);
 	while(p!=NULL)
 	{
