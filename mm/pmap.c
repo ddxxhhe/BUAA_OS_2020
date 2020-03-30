@@ -10,7 +10,7 @@ u_long maxpa;            /* Maximum physical address */
 u_long npage;            /* Amount of memory(in pages) */
 u_long basemem;          /* Amount of base memory(in bytes) */
 u_long extmem;           /* Amount of extended memory(in bytes) */
-int time = 0;
+static int time = 0;
 
 Pde *boot_pgdir;
 
@@ -53,17 +53,17 @@ static void *alloc(u_int n, u_int align, int clear)
     /* Initialize `freemem` if this is the first time. The first virtual address that the
      * linker did *not* assign to any kernel code or global variables. */
     if (freemem == 0) {
-        freemem = (u_long)end;
+        freemem = maxpa + 0x80000000;
     }
 
     /* Step 1: Round up `freemem` up to be aligned properly */
-    freemem = ROUND(freemem, align);
-
+   // freemem = ROUND(freemem, align);
+	freemem = ROUNDDOWN(freemem - n, align);
     /* Step 2: Save current value of `freemem` as allocated chunk. */
     alloced_mem = freemem;
 
     /* Step 3: Increase `freemem` to record allocation. */
-    freemem = freemem + n;
+   // freemem = freemem + n;
 
     /* Step 4: Clear allocated chunk if parameter `clear` is set. */
     if (clear) {
@@ -71,7 +71,7 @@ static void *alloc(u_int n, u_int align, int clear)
     }
 
     // We're out of memory, PANIC !!
-    if (PADDR(freemem) >= maxpa) {
+    if (alloced_mem < (u_long)end) {
         panic("out of memorty\n");
         return (void *)-E_NO_MEM;
     }
@@ -296,10 +296,9 @@ page_free(struct Page *pp)
  * output format : printf("times:%d,page status:%d\n",var1,var2);
  */
 void get_page_status(int pa) {
-	time++;
+	time += 1;
 	int var1 = time;
 	int var2 = 0;
-	int flag = 0;
 	struct Page *temp;
 	struct Page *temp2;
 	temp = pa2page(pa);
@@ -309,16 +308,19 @@ void get_page_status(int pa) {
 		if (LIST_EMPTY(&page_free_list)) {
 			var2 = 2;
 		} else {
-			temp2 = LIST_FIRST(&page_free_list);
-			while (LIST_NEXT(LIST_NEXT((temp2),pp_link),pp_link) != NULL) {
+			/*temp2 = LIST_FIRST(&page_free_list);
+			while (LIST_NEXT((LIST_NEXT((temp2),pp_link)),pp_link) != NULL) {
 				if (&temp2 == &temp){
 					flag = 1;
 				} 
-				LIST_NEXT((temp2),pp_link) = LIST_NEXT(LIST_NEXT((temp2),pp_link),pp_link);
+				LIST_NEXT((temp2),pp_link) = LIST_NEXT((LIST_NEXT((temp2),pp_link)),pp_link);
+			}*/
+			LIST_FOREACH(temp2, page_free_list, pp_link) {
+				if (&temp2 == &temp) {
+					var2 = 1;
+				}
 			}
-			if (flag == 1) {
-				var2 = 1;
-			} else {
+			if (var2 != 1) {
 				var2 = 2;
 			}
 		}
