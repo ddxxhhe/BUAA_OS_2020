@@ -298,24 +298,16 @@ page_free(struct Page *pp)
 void get_page_status(int pa) {
 	time += 1;
 	int var2 = 0;
-	struct Page *temp;
+	struct Page *temp = pa2page((u_long)pa);
 	struct Page *temp2;
-	temp = pa2page((u_long)pa);
-	if (temp->pp_ref != 0) { //using
+	if ((temp->pp_ref) != 0) { //using
 		var2 = 3;
 	} else { //if the page is not using, but out of the page_free_list
 		if (LIST_EMPTY(&page_free_list)) {
 			var2 = 2;
 		} else {
-			/*temp2 = LIST_FIRST(&page_free_list);
-			while (LIST_NEXT((LIST_NEXT((temp2),pp_link)),pp_link) != NULL) {
-				if (&temp2 == &temp){
-					flag = 1;
-				} 
-				LIST_NEXT((temp2),pp_link) = LIST_NEXT((LIST_NEXT((temp2),pp_link)),pp_link);
-			}*/
 			LIST_FOREACH(temp2, &page_free_list, pp_link) {
-				if (&temp2 == &temp) {
+				if (temp2 == temp) {
 					var2 = 1;
 				}
 			}
