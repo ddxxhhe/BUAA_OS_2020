@@ -297,11 +297,10 @@ page_free(struct Page *pp)
  */
 void get_page_status(int pa) {
 	time += 1;
-	int var1 = time;
 	int var2 = 0;
 	struct Page *temp;
 	struct Page *temp2;
-	temp = pa2page(pa);
+	temp = pa2page((u_long)pa);
 	if (temp->pp_ref != 0) { //using
 		var2 = 3;
 	} else { //if the page is not using, but out of the page_free_list
@@ -320,12 +319,12 @@ void get_page_status(int pa) {
 					var2 = 1;
 				}
 			}
-			if (var2 != 1) {
+			if (var2 != 1 && var2 != 3) {
 				var2 = 2;
 			}
 		}
 	}
-	printf("times:%d,page status:%d\n",var1,var2);
+	printf("times:%d,page status:%d\n",time,var2);
 }
 
 /*Overview:
