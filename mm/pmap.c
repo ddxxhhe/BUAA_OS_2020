@@ -315,7 +315,7 @@ void get_page_status(int pa) {
 				} 
 				LIST_NEXT((temp2),pp_link) = LIST_NEXT((LIST_NEXT((temp2),pp_link)),pp_link);
 			}*/
-			LIST_FOREACH(temp2, page_free_list, pp_link) {
+			LIST_FOREACH(temp2, &page_free_list, pp_link) {
 				if (&temp2 == &temp) {
 					var2 = 1;
 				}
