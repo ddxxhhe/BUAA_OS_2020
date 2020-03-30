@@ -86,7 +86,7 @@ void mips_detect_memory();
 void mips_vm_init();
 
 void mips_init();
-void page_init(void);
+void page_init(int model);
 void page_check();
 void physical_memory_manage_check();
 int page_alloc(struct Page **pp);
@@ -97,6 +97,7 @@ int page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm);
 struct Page *page_lookup(Pde *pgdir, u_long va, Pte **ppte);
 void page_remove(Pde *pgdir, u_long va) ;
 void tlb_invalidate(Pde *pgdir, u_long va);
+void get_page_status(int pa);
 
 void boot_map_segment(Pde *pgdir, u_long va, u_long size, u_long pa, int perm);
 

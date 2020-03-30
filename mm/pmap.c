@@ -10,6 +10,7 @@ u_long maxpa;            /* Maximum physical address */
 u_long npage;            /* Amount of memory(in pages) */
 u_long basemem;          /* Amount of base memory(in bytes) */
 u_long extmem;           /* Amount of extended memory(in bytes) */
+int time = 0;
 
 Pde *boot_pgdir;
 
@@ -184,7 +185,7 @@ void mips_vm_init()
   Hint:
 	Use `LIST_INSERT_HEAD` to insert something to list.*/
 void
-page_init(void)
+page_init(int model)
 {
     /* Step 1: Initialize page_free_list. */
     /* Hint: Use macro `LIST_INIT` defined in include/queue.h. */
@@ -208,15 +209,25 @@ page_init(void)
 //	(&pages[j])->pp_ref = 0;
 //	LIST_INSERT_HEAD(&page_free_list, &pages[j], pp_link);
 //    }
-    for(i = 0;i < npage;i++) {
-	if (page2kva(&pages[i]) < freemem) {
-		(&pages[i])->pp_ref = 1;
+	if (model == 0){
+		for(i = 0;i < npage;i++) {
+			if (page2kva(&pages[i]) < freemem) {
+				(&pages[i])->pp_ref = 1;
+			} else {
+				(&pages[i])->pp_ref = 0;
+				LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+			}
+		}
 	} else {
-		(&pages[i])->pp_ref = 0;
-		LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+    	for(i = npage - 1;i >= 0;i--) {
+			if (page2kva(&pages[i]) < freemem) {
+			(&pages[i])->pp_ref = 1;
+			} else {
+				(&pages[i])->pp_ref = 0;
+				LIST_INSERT_HEAD(&page_free_list, &pages[i], pp_link);
+			}
+    	}    
 	}
-    }    
-
 }
 
 /*Overview:
@@ -252,9 +263,7 @@ page_alloc(struct Page **pp)
     }
 	  
     /* Step 2: Initialize this page.
-     * Hint: use `bzero`. */
-
-    
+     * Hint: use `bzero`. */    
 }
 
 /*Overview:
@@ -280,6 +289,41 @@ page_free(struct Page *pp)
     	panic("cgh:pp->pp_ref is less than zero\n");
 	return;
     }
+}
+
+/*
+ * pa = physical address
+ * output format : printf("times:%d,page status:%d\n",var1,var2);
+ */
+void get_page_status(int pa) {
+	time++;
+	int var1 = time;
+	int var2 = 0;
+	int flag = 0;
+	struct Page *temp;
+	struct Page *temp2;
+	temp = pa2page(pa);
+	if (temp->pp_ref != 0) { //using
+		var2 = 3;
+	} else { //if the page is not using, but out of the page_free_list
+		if (LIST_EMPTY(&page_free_list)) {
+			var2 = 2;
+		} else {
+			temp2 = LIST_FIRST(&page_free_list);
+			while (LIST_NEXT(LIST_NEXT((temp2),pp_link),pp_link) != NULL) {
+				if (&temp2 == &temp){
+					flag = 1;
+				} 
+				LIST_NEXT((temp2),pp_link) = LIST_NEXT(LIST_NEXT((temp2),pp_link),pp_link);
+			}
+			if (flag == 1) {
+				var2 = 1;
+			} else {
+				var2 = 2;
+			}
+		}
+	}
+	printf("times:%d,page status:%d\n",var1,var2);
 }
 
 /*Overview:
