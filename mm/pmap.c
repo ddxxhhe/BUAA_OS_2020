@@ -4,6 +4,7 @@
 #include "env.h"
 #include "error.h"
 
+
 /* These variables are set by mips_detect_memory() */
 u_long maxpa;            /* Maximum physical address */
 u_long npage;            /* Amount of memory(in pages) */
