@@ -197,9 +197,9 @@ env_setup_vm(struct Env *e)
 int
 env_alloc(struct Env **new, u_int parent_id)
 {
+	printf("env_alloc!\n");
     int r;
     struct Env *e;
-
     /*Step 1: Get a new Env from env_free_list*/
 	if (LIST_EMPTY(&env_free_list)) {
 		return -E_NO_FREE_ENV;
@@ -209,17 +209,13 @@ env_alloc(struct Env **new, u_int parent_id)
     /*Step 2: Call certain function(has been completed just now) to init kernel memory layout for this new Env.
      *The function mainly maps the kernel address to this new Env address. */
 	env_setup_vm(e);
-	
     /*Step 3: Initialize every field of new Env with appropriate values.*/
 	e->env_id = mkenvid(e);
 	e->env_status = ENV_RUNNABLE;
 	e->env_tf.regs[29] = USTACKTOP;
 	e->env_parent_id = parent_id;
-
     /*Step 4: Focus on initializing the sp register and cp0_status of env_tf field, located at this new Env. */
     e->env_tf.cp0_status = 0x10001004;
-
-
     /*Step 5: Remove the new Env from env_free_list. */
 	*new = e;
 	LIST_REMOVE(*new, env_link);
@@ -246,6 +242,7 @@ env_alloc(struct Env **new, u_int parent_id)
 static int load_icode_mapper(u_long va, u_int32_t sgsize,
                              u_char *bin, u_int32_t bin_size, void *user_data)
 {
+	printf("load_icode_mapper!\n");
     struct Env *env = (struct Env *)user_data;
     struct Page *p = NULL;
     u_long i;
@@ -253,13 +250,13 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
     u_long offset = va - ROUNDDOWN(va, BY2PG);
 
     /*Step 1: load all content of bin into memory. */
-    for (i = 0; i < bin_size; i += BY2PG) {
+    for (i = 0; i < (bin_size + offset); i += BY2PG) {
         /* Hint: You should alloc a new page. */
 		if(r = page_alloc(&p) < 0) {
 			return r;
 		} else {
 			if(i == 0) {
-				bcopy((void *)bin, (void *)(p + offset), BY2PG - offset + 1);
+				bcopy((void *)bin, (void *)(p + offset), BY2PG - offset);
 				if (r = page_insert(env->env_pgdir, p, va - offset, PTE_R) < 0) {
 					return r;
 				}
@@ -307,6 +304,7 @@ load_icode(struct Env *e, u_char *binary, u_int size)
      *  Remember that the binary image is an a.out format image,
      *  which contains both text and data.
      */
+	printf("load_icode!\n");
     struct Page *p = NULL;
     u_long entry_point;
     u_long r;
@@ -316,7 +314,6 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	if ((r = page_alloc(&p)) == -E_NO_MEM) {
 		;
 	}
-
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: Should the user-stack be writable? */
 	page_insert(e->env_pgdir, p, USTACKTOP - BY2PG, perm);
@@ -363,6 +360,7 @@ env_create_priority(u_char *binary, int size, int priority)
 void
 env_create(u_char *binary, int size)
 {
+	printf("create enve!\n");
      /*Step 1: Use env_create_priority to alloc a new env with priority 1 */
 	env_create_priority(binary, size, 1);
 }
@@ -462,7 +460,7 @@ env_run(struct Env *e)
 
     /*Step 3: Use lcontext() to switch to its address space. */
 	lcontext(curenv->env_pgdir);
-	printf("lcontext done!\n");
+//	printf("lcontext done!\n");
 
     /*Step 4: Use env_pop_tf() to restore the environment's
      * environment   registers and return to user mode.
@@ -471,7 +469,7 @@ env_run(struct Env *e)
      * (read <see mips run linux>, page 135-144)
      */
 	env_pop_tf(&(curenv->env_tf), GET_ENV_ASID(curenv->env_id));
-	printf("env_pop_tf() done!\n");
+//	printf("env_pop_tf() done!\n");
 
 }
 void env_check()

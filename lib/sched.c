@@ -13,7 +13,8 @@
  */
 /*** exercise 3.14 ***/
 void sched_yield(void)
-{
+{   
+	
     static int count = 0; // remaining time slices of current env
     static int point = 0; // current env_sched_list index
     
@@ -43,5 +44,5 @@ void sched_yield(void)
 	}
 	count--;
 	env_run(cur);
-	
+
 }
