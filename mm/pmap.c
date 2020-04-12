@@ -249,11 +249,8 @@ page_alloc(struct Page **pp)
 	*pp = ppage_temp;
 	return 0;	
     }
-	  
     /* Step 2: Initialize this page.
-     * Hint: use `bzero`. */
-
-    
+     * Hint: use `bzero`. */ 
 }
 
 /*Overview:

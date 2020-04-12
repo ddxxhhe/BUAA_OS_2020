@@ -12,8 +12,9 @@ void mips_init()
 	
 	mips_vm_init();
 	page_init();
-	
+//	printf("page_init() is successful!\n");
 	env_init();
+//	printf("env_init() is successful!\n");
 	env_check();
 
 	/*you can create some processes(env) here. in terms of binary code, please refer current directory/code_a.c
@@ -21,11 +22,15 @@ void mips_init()
     /*** exercise 3.9 ***/
 	/*you may want to create process by MACRO, please read env.h file, in which you will find it. this MACRO is very
 	 * interesting, have fun please*/
+	ENV_CREATE_PRIORITY(user_A, 2); 
+	ENV_CREATE_PRIORITY(user_B, 1);
 
-
-	
+//	printf("create two envs!\n");
 	trap_init();
+//	printf("trap_init() is successful!\n");
 	kclock_init();
+//	printf("kclock_init() is successful!\n");
+//	env_run(envs);
 	panic("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
 	while(1);
 	panic("init.c:\tend of mips_init() reached!");

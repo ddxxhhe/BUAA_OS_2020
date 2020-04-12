@@ -17,7 +17,8 @@ void sched_yield(void)
     static int count = 0; // remaining time slices of current env
     static int point = 0; // current env_sched_list index
     
-    /*  hint:
+
+    /* hint:
      *  1. if (count==0), insert `e` into `env_sched_list[1-point]`
      *     using LIST_REMOVE and LIST_INSERT_TAIL.
      *  2. if (env_sched_list[point] is empty), point = 1 - point;
@@ -29,4 +30,18 @@ void sched_yield(void)
      *  functions or macros below may be used (not all):
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
+
+	static struct Env *cur;
+	while (count == 0) {
+		if ((LIST_FIRST(&env_sched_list[point])) == NULL) {
+			point = 1 - point;
+		}
+		cur = LIST_FIRST(&env_sched_list[point]);
+		count = cur->env_pri;
+		LIST_REMOVE(cur, env_sched_link);
+		LIST_INSERT_TAIL(&env_sched_list[1 - point], cur, env_sched_link);
+	}
+	count--;
+	env_run(cur);
+	
 }
