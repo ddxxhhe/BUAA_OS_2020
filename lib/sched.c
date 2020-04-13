@@ -50,7 +50,7 @@ void sched_yield(void)
 			}
 		}
 	}*/
-	while (count == 0) {
+/*	while (count == 0) {
 //		printf("count = 0!\n");
 		if ((LIST_FIRST(&(env_sched_list[point]))) == NULL) {
 			point = 1 - point;
@@ -65,7 +65,7 @@ void sched_yield(void)
 //	printf("%d\n", count);
 	count--;
 	env_run(cur);
-
+*/
 /*	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
 		if (cur != NULL) {
 			LIST_REMOVE(cur, env_sched_link);
@@ -80,6 +80,29 @@ void sched_yield(void)
 	curtime--;
 	env_run(cur);*/
 //	env_run(LIST_FIRST(env_sched_list));
-
+	if (count == 0) {
+		if (cur != NULL) {
+			LIST_REMOVE(cur, env_sched_link);
+			LIST_INSERT_TAIL(&env_sched_list[1 - point], cur, env_sched_link);
+		}
+		if (LIST_EMPTY(&env_sched_list[point])) {
+			point = 1 - point;
+		}
+		while(1) {
+			cur = LIST_FIRST(&env_sched_list[point]);
+			if (cur == NULL) {
+				break;
+			}
+			if (cur->env_status == ENV_RUNNABLE) {
+				break;
+			}
+			LIST_REMOVE(cur, env_sched_link);
+		}
+		if (cur != NULL) {
+			count = cur->env_pri;
+		}
+	}
+	count--;
+	env_run(cur);
 
 }
