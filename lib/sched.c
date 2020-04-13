@@ -33,8 +33,8 @@ void sched_yield(void)
      */
 
 	static struct Env *cur;
-	while (count == 0) {
-		if ((LIST_FIRST(&env_sched_list[point])) == NULL) {
+	/*while (count == 0) {
+		if (LIST_FIRST(&env_sched_list[point]) == NULL) {
 			point = 1 - point;
 		}
 		cur = LIST_FIRST(&env_sched_list[point]);
@@ -42,7 +42,44 @@ void sched_yield(void)
 		LIST_REMOVE(cur, env_sched_link);
 		LIST_INSERT_TAIL(&env_sched_list[1 - point], cur, env_sched_link);
 	}
+	if (LIST_EMPTY(&env_sched_list[point])) {
+		point = 1 - point;
+		LIST_FOREACH(cur, &env_sched_list[point], env_sched_link) {
+			if (cur->env_status == ENV_RUNNABLE) {
+				count = cur->env_pri;
+			}
+		}
+	}*/
+	while (count == 0) {
+//		printf("count = 0!\n");
+		if ((LIST_FIRST(&(env_sched_list[point]))) == NULL) {
+			point = 1 - point;
+		}
+		cur = LIST_FIRST(&(env_sched_list[point]));
+		count = cur->env_pri;
+		if (cur != NULL) {
+		LIST_REMOVE(cur, env_sched_link);
+		LIST_INSERT_TAIL(&(env_sched_list[1 - point]), cur, env_sched_link);
+		}
+	}
+//	printf("%d\n", count);
 	count--;
 	env_run(cur);
+
+/*	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
+		if (cur != NULL) {
+			LIST_REMOVE(cur, env_sched_link);
+			LIST_INSERT_HEAD(&env_sched_list[1 - x], cur, env_sched_link);
+		}
+		while (LIST_FIRST(&env_sched_list[x]) == NULL) {
+			x = 1 - x;
+		}
+		cur = LIST_FIRST(&env_sched_list[x]);
+		curtime = cur->env_pri;
+	}
+	curtime--;
+	env_run(cur);*/
+//	env_run(LIST_FIRST(env_sched_list));
+
 
 }

@@ -23,7 +23,7 @@ NESTED(except_vec3, 0, sp)
 	andi k1,0x7c
 	addu k0,k1
 	lw k0,(k0)
-	NOP
+	nop
 	jr k0
 	nop
 END(except_vec3)

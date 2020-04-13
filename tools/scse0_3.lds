@@ -3,7 +3,6 @@ ENTRY(_start)
 
 SECTIONS
 {
-
   /*** exercise 3.12 ***/
  . = 0x80000080;
  .except_vec3 : {
