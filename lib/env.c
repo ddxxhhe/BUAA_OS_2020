@@ -17,6 +17,137 @@ struct Env_list env_sched_list[2];      // Runnable list
 
 extern Pde *boot_pgdir;
 extern char *KERNEL_SP;
+int no = 0;
+
+u_int newmkenvid(struct Env *e, int pri) {
+	static u_long next_env_id = 0;
+	u_int idx = e - envs;
+	return (++next_env_id << (5 + LOG2NENV)) | (pri << (1 + LOG2NENV)) | idx;
+}
+
+void output_env_info(int envid){
+	no++;
+	u_int env_index = ENVX(envid);
+	u_int env_pri = (envid >> 11) & ((1 << 4) - 1);
+	printf("no=%d,env_index=%d,env_pri=%d\n",no,env_index,env_pri);
+}
+
+void init_envid() {
+	struct Env *e;
+	int i;
+	for (i = 0; i<NENV; i++) {
+		e = &envs[i];
+		if (e->env_status == ENV_RUNNABLE) {
+			e->env_id = newmkenvid(e, e->env_pri);
+		}
+	}
+}
+
+int newenvid2env(u_int envid, struct Env **penv, int checkperm) {
+	struct Env *e;
+	if (envid == 0) {
+		return curenv;
+	}
+	int index = ENVX(envid);
+	e = &envs[index];
+	if (e->env_status == ENV_FREE || e->env_id != envid) {
+		*penv = 0;
+		return -E_BAD_ENV;
+	}
+	if (checkperm == 1) {
+		if (e == curenv || e->env_parent_id == curenv->env_id) {
+			;
+		} else {
+			return -E_BAD_ENV;
+		}
+	}
+	*penv = e;
+	return 0;
+}
+
+int check_root(u_int envid1, u_int envid2) {
+	init_envid();
+	struct Env *e1;
+	struct Env *e2;
+	struct Env *e;
+	int i;
+	e1 = &envs[ENVX(envid1)];
+	e2 = &envs[ENVX(envid2)];
+	while (1) {
+		if (e1->env_parent_id == 0) {
+			break;
+		} else {
+			for (i = 0; i < NENV; i++) {
+				e = &envs[i];
+				if (e->env_id == e1->env_parent_id) {
+					e1 = e;
+				}
+				if (i == (NENV - 1)) {
+					break;
+				}
+			}
+		}
+	}
+	while(1) {
+		if (e2->env_parent_id == 0) {
+			break;
+		} else {
+			for (i = 0; i<NENV; i++) {
+				e = &envs[i];
+				if (e->env_id == e2->env_parent_id) {
+					e2 = e;
+				}
+				if (i == (NENV - 1)) {
+					break;
+				}
+			}
+		}
+	}
+	if (e1->env_id == e2->env_id) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+int check_same_root(u_int envid1, u_int envid2) {
+	init_envid();
+	struct Env *e1;
+	struct Env *e2;
+	e1 = &envs[ENVX(envid1)];
+	e2 = &envs[ENVX(envid2)];
+	if (e1->env_status == ENV_NOT_RUNNABLE || e2->env_status == ENV_NOT_RUNNABLE) {
+		return -1;
+	} else {
+		return check_root(envid1, envid2);
+	}
+}
+
+void kill_all(u_int envid) {
+	init_envid();
+	int flag = 0;
+	int i;
+	for (i = 0; i < NENV; i++) {
+		struct Env *e;
+		e = &envs[i];
+		if (check_root(envid, e->env_id) == 1) {
+			if (e->env_status == ENV_NOT_RUNNABLE) {
+				printf("something is wrong!\n");
+				flag = 1;
+				break;
+			}
+		}
+	}
+	if (flag == 0) {
+		for (i = 0; i<NENV; i++) {
+			struct Env *e;
+			e = &envs[i];
+			if (check_root(envid, e->env_id) == 1){
+				e->env_status = ENV_NOT_RUNNABLE;
+			}
+		}
+	}
+}
 
 /* Overview:
  *  This function is for making an unique ID for every env.
