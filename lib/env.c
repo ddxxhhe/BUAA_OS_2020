@@ -66,7 +66,7 @@ int newenvid2env(u_int envid, struct Env **penv, int checkperm) {
 }
 
 int check_root(u_int envid1, u_int envid2) {
-	init_envid();
+//	init_envid();
 	struct Env *e1;
 	struct Env *e2;
 	struct Env *e;
@@ -84,6 +84,9 @@ int check_root(u_int envid1, u_int envid2) {
 					break;
 				}
 			}
+			if (i == NENV - 1) {
+				break;
+			}
 		}
 	}
 	while(1) {
@@ -97,6 +100,9 @@ int check_root(u_int envid1, u_int envid2) {
 					break;
 				}
 			}
+			if (i == NENV - 1) {
+				break;
+			}
 		}
 	}
 	if (e1->env_id == e2->env_id) {
@@ -107,7 +113,7 @@ int check_root(u_int envid1, u_int envid2) {
 }
 
 int check_same_root(u_int envid1, u_int envid2) {
-	init_envid();
+//	init_envid();
 	struct Env *e1;
 	struct Env *e2;
 	e1 = &envs[ENVX(envid1)];
@@ -120,7 +126,7 @@ int check_same_root(u_int envid1, u_int envid2) {
 }
 
 void kill_all(u_int envid) {
-	init_envid();
+//	init_envid();
 	int flag = 0;
 	int i;
 	for (i = 0; i < NENV; i++) {
