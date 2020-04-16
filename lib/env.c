@@ -74,15 +74,13 @@ int check_root(u_int envid1, u_int envid2) {
 	e1 = &envs[ENVX(envid1)];
 	e2 = &envs[ENVX(envid2)];
 	while (1) {
-		if (e1->env_parent_id == 0) {
+		if (e1->env_parent_id == 0) { //已经是祖节点了
 			break;
 		} else {
 			for (i = 0; i < NENV; i++) {
 				e = &envs[i];
 				if (e->env_id == e1->env_parent_id) {
 					e1 = e;
-				}
-				if (i == (NENV - 1)) {
 					break;
 				}
 			}
@@ -96,8 +94,6 @@ int check_root(u_int envid1, u_int envid2) {
 				e = &envs[i];
 				if (e->env_id == e2->env_parent_id) {
 					e2 = e;
-				}
-				if (i == (NENV - 1)) {
 					break;
 				}
 			}
@@ -116,7 +112,7 @@ int check_same_root(u_int envid1, u_int envid2) {
 	struct Env *e2;
 	e1 = &envs[ENVX(envid1)];
 	e2 = &envs[ENVX(envid2)];
-	if (e1->env_status == ENV_NOT_RUNNABLE || e2->env_status == ENV_NOT_RUNNABLE) {
+	if ((e1->env_status == ENV_NOT_RUNNABLE) || (e2->env_status == ENV_NOT_RUNNABLE)) {
 		return -1;
 	} else {
 		return check_root(envid1, envid2);
