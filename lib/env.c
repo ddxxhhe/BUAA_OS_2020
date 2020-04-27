@@ -70,6 +70,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
         *penv = NULL;
         return -E_BAD_ENV;
     }
+
     /*     Hint:
      *     Check that the calling env has enough permissions
      *     to manipulate the specified env.
