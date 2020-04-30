@@ -12,11 +12,14 @@
  *  3. CANNOT use `return` statement!
  */
 /*** exercise 3.14 ***/
+int curtime = 0;
+int x = 0;
+struct Env* cur = NULL;
 void sched_yield(void)
 {   
 	
-    static int curtime = 0; // remaining time slices of current env
-    static int x = 0; // current env_sched_list index
+//    static int curtime = 0; // remaining time slices of current env
+//    static int x = 0; // current env_sched_list index
     
 
     /* hint:
@@ -32,7 +35,8 @@ void sched_yield(void)
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
 
-	static struct Env *cur = NULL;
+//	static struct Env *cur = NULL;
+	cur = curenv;
 	/*while (count == 0) {
 		if (LIST_FIRST(&env_sched_list[point]) == NULL) {
 			point = 1 - point;
@@ -104,7 +108,7 @@ void sched_yield(void)
 	}
 	count--;
 	env_run(cur);*/
-	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
+/*	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
 		if (cur != NULL) {
 			LIST_REMOVE(cur, env_sched_link);
 			LIST_INSERT_HEAD(&env_sched_list[1 - x], cur, env_sched_link);
@@ -114,7 +118,25 @@ void sched_yield(void)
 		}
 		cur = LIST_FIRST(&env_sched_list[x]);
 		curtime = cur->env_pri;
+	}*/
+	if (curtime == 0 || cur == NULL || cur->env_status == ENV_NOT_RUNNABLE ) {
+		do {
+			cur = LIST_FIRST(&env_sched_list[x]);
+			if (cur == NULL) {
+				if (!LIST_EMPTY(&env_sched_list[1 - x])) {
+					x = 1 - x;
+					cur = LIST_FIRST(&env_sched_list[x]);
+				}
+			}
+			curtime = cur->env_pri;
+			LIST_REMOVE(cur, env_sched_link);
+			LIST_INSERT_HEAD(&env_sched_list[1 - x], cur, env_sched_link);
+			if (LIST_EMPTY(&env_sched_list[x])) {
+				x = 1 - x;
+			}
+		} while (cur->env_status != ENV_RUNNABLE);
 	}
 	curtime--;
+	cur->env_runs++;
 	env_run(cur);
 }

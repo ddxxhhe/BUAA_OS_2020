@@ -146,7 +146,7 @@ env_setup_vm(struct Env *e)
         panic("env_setup_vm - page alloc error\n");
         return r;
     }
-	p->pp_ref += 1;
+	(p->pp_ref) += 1;
 	pgdir = (Pte *)page2kva(p);
 
     /*Step 2: Zero pgdir's field before UTOP. */
@@ -170,7 +170,8 @@ env_setup_vm(struct Env *e)
 	e->env_cr3 = PADDR(pgdir);
 
     // UVPT maps the env's own page table, with read-only permission.
-    e->env_pgdir[PDX(UVPT)]  = e->env_cr3 | PTE_V;
+	e->env_pgdir[PDX(VPT)] = e->env_cr3;
+    e->env_pgdir[PDX(UVPT)]  = e->env_cr3 | PTE_V | PTE_R;
     return 0;
 }
 
@@ -202,6 +203,7 @@ env_alloc(struct Env **new, u_int parent_id)
     struct Env *e;
     /*Step 1: Get a new Env from env_free_list*/
 	if (LIST_EMPTY(&env_free_list)) {
+		*new = NULL;
 		return -E_NO_FREE_ENV;
 	} else {
 		e = LIST_FIRST(&env_free_list);
@@ -222,7 +224,7 @@ env_alloc(struct Env **new, u_int parent_id)
 //	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
 	*new = e;
 	LIST_REMOVE(*new, env_link);
-//	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
+	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
 	return 0;
 }
 
@@ -249,37 +251,37 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 //	printf("load_icode_mapper!\n");
     struct Env *env = (struct Env *)user_data;
     struct Page *p = NULL;
-    u_long i;
-    int r;
+    u_long i = 0;
+	int r;
     u_long offset = va - ROUNDDOWN(va, BY2PG);
 
     /*Step 1: load all content of bin into memory. */
-    for (i = 0; i < (bin_size + offset); i += BY2PG) {
+    for (i = va - offset; i < (bin_size + va); i += BY2PG) {
         /* Hint: You should alloc a new page. */
 		if((r = page_alloc(&p)) < 0) {
 			return r;
 		} else {
-			if(i == 0) {
-				bcopy((void *)bin, (void *)(page2kva(p) + offset), BY2PG - offset);
-				if ((r = page_insert(env->env_pgdir, p, va - offset, PTE_V|PTE_R)) < 0) {
-					return r;
-				}
+			if(i < va) {
+				bcopy((void *)bin, (void *)(page2kva(p) + offset), MIN(BY2PG - offset, bin_size));
+			} else if((i + BY2PG) >= (va + bin_size)) {
+				bcopy((void *)(bin + i - va), (void *)page2kva(p), va + bin_size - i);
+				bzero((void *)(page2kva(p) + va + bin_size - i), BY2PG - (va + bin_size - i));
 			} else {
-				bcopy((void *)(bin + i - offset), (void *)(page2kva(p) + i), BY2PG);
-				if ((r = page_insert(env->env_pgdir, p, va - offset + i,PTE_V|PTE_R)) < 0){
-					return r;
-				}
+				bcopy((void *)(bin + i - va), (void *) page2kva(p), BY2PG);
+			}
+			if ((r = page_insert(env->env_pgdir, p, i, (PTE_V|PTE_R))) < 0) {
+				return r;
 			}
 		}
     }
     /*Step 2: alloc pages to reach `sgsize` when `bin_size` < `sgsize`.
     * hint: variable `i` has the value of `bin_size` now! */
-    while (i < sgsize) {
+    while (i < (va + sgsize)) {
 		if ((r = page_alloc(&p)) < 0) {
 			return r;
 		}
-		bzero((void *)(page2kva(p) + offset + i), BY2PG);
-		if ((r = page_insert(env->env_pgdir, p, va - offset + i,PTE_V|PTE_R)) < 0) {
+		bzero((void *)(page2kva(p)), BY2PG);
+		if ((r = page_insert(env->env_pgdir, p, i, (PTE_V|PTE_R))) < 0) {
 			return r;
 		}
 		i += BY2PG;
@@ -457,7 +459,7 @@ env_run(struct Env *e)
     *  switch the context and save the registers. You can imitate env_destroy() 's behaviors.*/
 
 	struct Trapframe *old = (struct Trapframe *)(TIMESTACK - sizeof(struct Trapframe));
-	if (curenv && curenv != e) {
+	if (curenv) {
 		curenv->env_tf = *old;
 		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
 	}

@@ -156,7 +156,7 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	if (va >= UTOP || va < 0) {
 		return -E_INVAL;
 	}
-	if ((perm & PTE_COW) || !(perm & PTE_V)) {
+	if (!(perm & PTE_V)) {
 		return -E_INVAL;
 	}
 	if ((r = envid2env(envid, &env, 0)) < 0) {
@@ -203,7 +203,7 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 
     //your code here
 	if (srcva >= UTOP || srcva < 0 || dstva >= UTOP || dstva < 0) {
-		return -E_UNSPECIFIED;
+		return -E_INVAL;
 	}
 
 	if (!(perm & PTE_V)) {
