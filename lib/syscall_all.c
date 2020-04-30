@@ -154,7 +154,7 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	ret = 0;
 	
 	if (va >= UTOP || va < 0) {
-		return -E_UNSPECIFIED;
+		return -E_INVAL;
 	}
 	if ((perm & PTE_COW) || !(perm & PTE_V)) {
 		return -E_INVAL;
@@ -250,7 +250,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 		return -E_INVAL;
 	}
 
-	if ((r = envid2env(envid, &env, PTE_V)) < 0) {
+	if ((r = envid2env(envid, &env, 0)) < 0) {
 		return r;
 	}
 
@@ -317,10 +317,10 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
 		return -E_INVAL;
 	} else {
-		env->env_status = status;
-		if (status == ENV_RUNNABLE) { //加入可调度队列
-			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+		if (status == ENV_FREE) {
+			env_destroy(env);
 		}
+		env->env_status = status;
 	}
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -421,7 +421,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	}
 	if (srcva != 0) {
 		e->env_ipc_perm = perm|PTE_V|PTE_R;
-		if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) <= 0) {
+		if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == NULL) {
 			return -E_INVAL;
 		} else if (page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm) < 0) {
 			return -E_INVAL;
@@ -431,7 +431,7 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	e->env_status = ENV_RUNNABLE;
 	e->env_ipc_value = value;
 	e->env_ipc_from = curenv->env_id;
-
+	e->env_ipc_perm = perm|PTE_V|PTE_R;
 	return 0;
 }
 

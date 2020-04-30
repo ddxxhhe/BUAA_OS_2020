@@ -12,9 +12,9 @@ NESTED(handle_sys,TF_SIZE, sp)
     .set at                             // Resume use of $at
 
     // TODO: Fetch EPC from Trapframe, calculate a proper value and store it back to trapframe.
-	lw t1, TF_EPC(sp)
-	addiu t1, t1, 4
-	sw t1, TF_EPC(sp)
+	lw    t1, TF_EPC(sp)
+	addiu    t1, t1, 4
+	sw    t1, TF_EPC(sp)
     // TODO: Copy the syscall number into $a0.
     
     addiu   a0, a0, -__SYSCALL_BASE     // a0 <- relative syscall number
@@ -29,8 +29,8 @@ NESTED(handle_sys,TF_SIZE, sp)
 
     // TODO: Allocate a space of six arguments on current kernel stack and copy the six arguments to proper location
     addiu sp, sp, -24
-	sw t3, 16(t0)
-	sw t4, 20(t0)
+	sw t3, 16(sp)
+	sw t4, 20(sp)
     
     jalr    t2                          // Invoke sys_* function
     nop
