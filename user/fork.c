@@ -82,9 +82,27 @@ void user_bzero(void *v, u_int n)
 static void
 pgfault(u_int va)
 {
-	u_int *tmp;
+	u_int tmp;
+	int perm;
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
-    
+    va = ROUNDDOWN(va, BY2PG);
+	tmp = USTACKTOP;
+	perm = (*vpt)[VPN(va)] & 0xfff;
+	if (!(perm & PTE_COW)) {
+		user_panic("error");
+	} else {
+		if (syscall_mem_alloc(0, tmp, PTE_V|PTE_R) < 0) {
+			user_panic("pgfault alloc error");
+		}
+		user_bcopy((void *)va, (void *)tmp, BY2PG);
+		if (syscall_mem_map(0, tmp, 0, va, PTE_V|PTE_R) < 0) {
+			user_panic("pgfault map error");
+		}
+		if (syscall_mem_unmap(0, tmp) < 0) {
+			user_panic("pgfault unmap error");
+		}
+	}
+	return;
     //map the new page at a temporary place
 
 	//copy the content
@@ -117,7 +135,24 @@ duppage(u_int envid, u_int pn)
 {
 	u_int addr;
 	u_int perm;
-
+	addr = pn << PGSHIFT;
+	perm = (*vpt)[pn] & 0xfff;
+	if (!(perm & PTE_V)) {
+		return;
+	} else {
+		if ((perm & PTE_R) && (perm & PTE_COW)==0 && (perm & PTE_LIBRARY)==0) {
+			if (syscall_mem_map(0, addr, 0, addr, perm|PTE_COW) < 0) {
+				user_panic("error");
+			}
+			if (syscall_mem_map(0, addr, envid, addr, perm|PTE_COW) < 0) {
+				user_panic("error");
+			}
+		} else {
+			if (syscall_mem_map(0, addr, envid, addr, perm) < 0) {
+				user_panic("map error");
+			}
+		}
+	}
 	//	user_panic("duppage not implemented");
 }
 
@@ -139,14 +174,36 @@ fork(void)
 	u_int newenvid;
 	extern struct Env *envs;
 	extern struct Env *env;
+	int ret;
 	u_int i;
 
 
 	//The parent installs pgfault using set_pgfault_handler
+	set_pgfault_handler(pgfault);
 
 	//alloc a new alloc
+	newenvid = syscall_env_alloc();
+	if (newenvid == 0) {
+		env = envs + ENVX(syscall_getenvid());
+		return 0;
+	}
 
-
+	for (i = 0; i < (UTOP - 2*BY2PG); i+=BY2PG) {
+		int perm1 = ((Pde *)(*vpt))[i >> PDSHIFT];
+		int perm2 = ((Pde *)(*vpd))[i >> PDSHIFT];
+		if ((perm1 & PTE_V) && (perm2 & PTE_V)) {
+			duppage(newenvid, VPN(i));
+		}
+	}
+	if ((ret = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R)) < 0) {
+		user_panic("fork mem_alloc error");
+	}
+	if ((ret = syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP)) < 0) {
+		user_panic("fork pgfault error");
+	}
+	if ((ret = syscall_set_env_status(newenvid, ENV_RUNNABLE)) < 0) {
+		user_panic("fork set status error");
+	}
 	return newenvid;
 }
 

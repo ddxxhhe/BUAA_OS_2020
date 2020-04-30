@@ -64,6 +64,10 @@ u_int sys_getenvid(void)
 /*** exercise 4.6 ***/
 void sys_yield(void)
 {
+	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
+		  (void *) TIMESTACK - sizeof(struct Trapframe),
+		  sizeof(struct Trapframe));
+	sched_yield();
 }
 
 /* Overview:
@@ -111,8 +115,12 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 {
 	// Your code here.
 	struct Env *env;
-	int ret;
-
+	int r;
+	if ((r = envid2env(envid, &env, 0)) < 0) {
+		return r;
+	}
+	env->env_pgfault_handler = func;
+	env->env_xstacktop = xstacktop;
 
 	return 0;
 	//	panic("sys_set_pgfault_handler not implemented");
@@ -142,8 +150,25 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	struct Env *env;
 	struct Page *ppage;
 	int ret;
+	int r;
 	ret = 0;
-
+	
+	if (va >= UTOP || va < 0) {
+		return -E_UNSPECIFIED;
+	}
+	if ((perm & PTE_COW) || !(perm & PTE_V)) {
+		return -E_INVAL;
+	}
+	if ((r = envid2env(envid, &env, 0)) < 0) {
+		return r;
+	}
+	if ((r = page_alloc(&ppage)) < 0) {
+		return r;
+	}
+	if ((r = page_insert(env->env_pgdir, ppage, va, perm)) < 0) {
+		return r;
+	}
+	return 0;
 }
 
 /* Overview:
@@ -164,6 +189,7 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 				u_int perm)
 {
 	int ret;
+	int r;
 	u_int round_srcva, round_dstva;
 	struct Env *srcenv;
 	struct Env *dstenv;
@@ -176,6 +202,29 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
 
     //your code here
+	if (srcva >= UTOP || srcva < 0 || dstva >= UTOP || dstva < 0) {
+		return -E_UNSPECIFIED;
+	}
+
+	if (!(perm & PTE_V)) {
+		return -E_INVAL;
+	}
+
+	if ((r = envid2env(srcid, &srcenv, 0)) < 0) {
+		return r;
+	}
+
+	if ((r = envid2env(dstid, &dstenv, 0)) < 0) {
+		return r;
+	}
+
+	if ((ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte)) == 0) {
+		return -E_UNSPECIFIED;
+	}
+
+	if ((r = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm)) < 0) {
+		return r;
+	}
 
 	return ret;
 }
@@ -193,8 +242,19 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 int sys_mem_unmap(int sysno, u_int envid, u_int va)
 {
 	// Your code here.
-	int ret;
+	int ret = 0;
+	int r;
 	struct Env *env;
+	
+	if (va >= UTOP || va < 0) {
+		return -E_INVAL;
+	}
+
+	if ((r = envid2env(envid, &env, PTE_V)) < 0) {
+		return r;
+	}
+
+	page_remove(env->env_pgdir, va);
 
 	return ret;
 	//	panic("sys_mem_unmap not implemented");
@@ -218,7 +278,16 @@ int sys_env_alloc(void)
 	// Your code here.
 	int r;
 	struct Env *e;
-
+	if ((r = env_alloc(&e, curenv->env_id)) < 0) {
+		return r;
+	}
+	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
+		  (void *) &(e->env_tf) - sizeof(struct Trapframe),
+		  sizeof(struct Trapframe));
+	e->env_tf.pc = e->env_tf.cp0_epc;
+	e->env_status = ENV_NOT_RUNNABLE;
+	e->env_pri = curenv->env_pri;
+	e->env_tf.regs[2] = 0;
 
 	return e->env_id;
 	//	panic("sys_env_alloc not implemented");
@@ -241,8 +310,18 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 {
 	// Your code here.
 	struct Env *env;
-	int ret;
-
+	int r;
+	if ((r = envid2env(envid, &env, 0)) < 0) {
+		return r;
+	}
+	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
+		return -E_INVAL;
+	} else {
+		env->env_status = status;
+		if (status == ENV_RUNNABLE) { //加入可调度队列
+			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+		}
+	}
 	return 0;
 	//	panic("sys_env_set_status not implemented");
 }
@@ -296,6 +375,13 @@ void sys_panic(int sysno, char *msg)
 /*** exercise 4.7 ***/
 void sys_ipc_recv(int sysno, u_int dstva)
 {
+	if (dstva >= UTOP) {
+		return;
+	}
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	sys_yield();
 }
 
 /* Overview:
@@ -323,6 +409,28 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	int r;
 	struct Env *e;
 	struct Page *p;
+	
+	if (srcva >= UTOP || srcva < 0) {
+		return -E_INVAL;
+	}
+	if ((r = envid2env(envid, &e, 0)) < 0) {
+		return r;
+	}
+	if (e->env_ipc_recving == 0) {
+		return -E_IPC_NOT_RECV;
+	}
+	if (srcva != 0) {
+		e->env_ipc_perm = perm|PTE_V|PTE_R;
+		if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) <= 0) {
+			return -E_INVAL;
+		} else if (page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm) < 0) {
+			return -E_INVAL;
+		}
+	}
+	e->env_ipc_recving = 0;
+	e->env_status = ENV_RUNNABLE;
+	e->env_ipc_value = value;
+	e->env_ipc_from = curenv->env_id;
 
 	return 0;
 }

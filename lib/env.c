@@ -261,12 +261,12 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 		} else {
 			if(i == 0) {
 				bcopy((void *)bin, (void *)(page2kva(p) + offset), BY2PG - offset);
-				if ((r = page_insert(env->env_pgdir, p, va - offset, PTE_R)) < 0) {
+				if ((r = page_insert(env->env_pgdir, p, va - offset, PTE_V|PTE_R)) < 0) {
 					return r;
 				}
 			} else {
 				bcopy((void *)(bin + i - offset), (void *)(page2kva(p) + i), BY2PG);
-				if ((r = page_insert(env->env_pgdir, p, va - offset + i, PTE_R)) < 0){
+				if ((r = page_insert(env->env_pgdir, p, va - offset + i,PTE_V|PTE_R)) < 0){
 					return r;
 				}
 			}
@@ -279,7 +279,7 @@ static int load_icode_mapper(u_long va, u_int32_t sgsize,
 			return r;
 		}
 		bzero((void *)(page2kva(p) + offset + i), BY2PG);
-		if ((r = page_insert(env->env_pgdir, p, va - offset + i, PTE_R)) < 0) {
+		if ((r = page_insert(env->env_pgdir, p, va - offset + i,PTE_V|PTE_R)) < 0) {
 			return r;
 		}
 		i += BY2PG;

@@ -15,8 +15,8 @@
 void sched_yield(void)
 {   
 	
-    static int count = 0; // remaining time slices of current env
-    static int point = 0; // current env_sched_list index
+    static int curtime = 0; // remaining time slices of current env
+    static int x = 0; // current env_sched_list index
     
 
     /* hint:
@@ -32,7 +32,7 @@ void sched_yield(void)
      *  LIST_INSERT_TAIL, LIST_REMOVE, LIST_FIRST, LIST_EMPTY
      */
 
-	static struct Env *cur;
+	static struct Env *cur = NULL;
 	/*while (count == 0) {
 		if (LIST_FIRST(&env_sched_list[point]) == NULL) {
 			point = 1 - point;
@@ -80,7 +80,7 @@ void sched_yield(void)
 	curtime--;
 	env_run(cur);*/
 //	env_run(LIST_FIRST(env_sched_list));
-	if (count == 0) {
+/*	if (count == 0) {
 		if (cur != NULL) {
 			LIST_REMOVE(cur, env_sched_link);
 			LIST_INSERT_TAIL(&env_sched_list[1 - point], cur, env_sched_link);
@@ -103,6 +103,18 @@ void sched_yield(void)
 		}
 	}
 	count--;
+	env_run(cur);*/
+	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
+		if (cur != NULL) {
+			LIST_REMOVE(cur, env_sched_link);
+			LIST_INSERT_HEAD(&env_sched_list[1 - x], cur, env_sched_link);
+		}
+		while ((LIST_FIRST(&env_sched_list[x])) == NULL) {
+			x = 1 - x;
+		}
+		cur = LIST_FIRST(&env_sched_list[x]);
+		curtime = cur->env_pri;
+	}
+	curtime--;
 	env_run(cur);
-
 }
