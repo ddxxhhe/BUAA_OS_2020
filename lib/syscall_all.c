@@ -149,14 +149,12 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	// Your code here.
 	struct Env *env;
 	struct Page *ppage;
-	int ret;
 	int r;
-	ret = 0;
 	
 	if (va >= UTOP || va < 0) {
 		return -E_INVAL;
 	}
-	if ((perm & PTE_V)==0||(perm&PTE_COW)!=0) {
+	if ((perm & PTE_V)==0) {
 		return -E_INVAL;
 	}
 	if ((r = envid2env(envid, &env, 0)) < 0) {
@@ -218,8 +216,8 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 		return r;
 	}
 
-	if ((ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte)) == 0) {
-		return -E_UNSPECIFIED;
+	if ((ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte)) == NULL) {
+		return -E_INVAL;
 	}
 
 	if ((r = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm)) < 0) {
@@ -282,8 +280,7 @@ int sys_env_alloc(void)
 		return r;
 	}
 	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
-		  (void *) (&(e->env_tf) - sizeof(struct Trapframe)),
-		  sizeof(struct Trapframe));
+		  (void *) (&(e->env_tf)),sizeof(struct Trapframe));
 	e->env_tf.pc = e->env_tf.cp0_epc;
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_pri = curenv->env_pri;
@@ -409,32 +406,44 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	int r;
 	struct Env *e;
 	struct Page *p;
+	Pte *pte;
 	
-	if (srcva >= UTOP || srcva != 0) {
+	if (srcva >= UTOP) {
 		return -E_INVAL;
 	}
 	if ((r = envid2env(envid, &e, 0)) != 0) {
 		return r;
 	}
-	if (e->env_ipc_recving != 1) {
+	if (e->env_ipc_recving == 0) {
 		return -E_IPC_NOT_RECV;
 	}
-	if (srcva != 0) {
+
+/*	if (srcva != 0) {
 		e->env_ipc_perm = perm|PTE_V|PTE_R;
-	/*	if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == 0) {
+	*	if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == 0) {
 			return -E_INVAL;
 		} else if (page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm) < 0) {
 			return -E_INVAL;
-		}*/
+		}*
 		if ((r = sys_mem_map(sysno,curenv->env_id, srcva, envid, e->env_ipc_dstva, perm)) < 0) {
 			return r;
 		}
-	}
+	}*/
 	e->env_ipc_recving = 0;
 	e->env_status = ENV_RUNNABLE;
 	e->env_ipc_value = value;
 	e->env_ipc_from = curenv->env_id;
+	e->env_ipc_perm = perm;
 
+	if (srcva != 0) {
+		p = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (p==NULL){
+			return -E_INVAL;
+		}
+		if ((r=page_insert(e->env_pgdir,p,e->env_ipc_dstva,perm))<0) {
+			return r;
+		}
+	}
 	return 0;
 }
 

@@ -135,8 +135,32 @@ duppage(u_int envid, u_int pn)
 {
 	u_int addr;
 	u_int perm;
-	addr = pn*BY2PG;
+	addr = pn<<PGSHIFT;
 	perm = ((*vpt)[pn]) & 0xFFF;
+
+	if ((perm & PTE_R)==0) {
+		if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
+			user_panic("error");
+		}
+	}
+	else if (perm & PTE_LIBRARY) {
+		if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
+			user_panic("error");
+		}
+	}
+	else if (perm & PTE_COW) {
+		if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
+			user_panic("error");
+		}
+	}
+	else {
+		if (syscall_mem_map(0,addr,envid,addr,perm|PTE_COW)<0) {
+			user_panic("error");
+		}
+		if (syscall_mem_map(0,addr,0,addr,perm|PTE_COW) < 0) {
+			user_panic("error");
+		}
+	}
 /*	if (!(perm & PTE_V)) {
 		return;
 	} else {
@@ -153,26 +177,26 @@ duppage(u_int envid, u_int pn)
 			}
 		}
 	}*/
-	if ((perm&PTE_R) || (perm&PTE_LIBRARY) && (perm&PTE_V)) {
-	/*	if (syscall_mem_map(0,addr,envid,addr,perm|PTE_COW)<0) {
+/*	if ((perm&PTE_R) || (perm&PTE_LIBRARY) && (perm&PTE_V)) {
+	*	if (syscall_mem_map(0,addr,envid,addr,perm|PTE_COW)<0) {
 			user_panic("mem_map son error");
 		}
 		if (syscall_mem_map(0,addr,0,addr,perm|PTE_COW)<0) {
 			user_panic("mem_map father error");
-		}*/
+		}
 		syscall_mem_map(0,addr,envid,addr,perm);
 	}
 	else if((perm&PTE_V) && ((perm&PTE_COW) || (perm&PTE_R))){
-	/*	if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
+	*	if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
 			user_panic("mem_map son error");
-		}*/
+		}*
 		syscall_mem_map(0,addr,envid,addr,perm|PTE_COW);
 		syscall_mem_map(0,addr,0,addr,perm|PTE_COW);
 	}
 	else {
 		syscall_mem_map(0,addr,envid,addr,perm);
 	}
-	//	user_panic("duppage not implemented");
+	//	user_panic("duppage not implemented");*/
 }
 
 /* Overview:
