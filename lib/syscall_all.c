@@ -64,8 +64,8 @@ u_int sys_getenvid(void)
 /*** exercise 4.6 ***/
 void sys_yield(void)
 {
-	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
-		  (void *) TIMESTACK - sizeof(struct Trapframe),
+	bcopy((void *)(KERNEL_SP - sizeof(struct Trapframe)),
+		  (void *)(TIMESTACK - sizeof(struct Trapframe)),
 		  sizeof(struct Trapframe));
 	sched_yield();
 }
@@ -156,7 +156,7 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	if (va >= UTOP || va < 0) {
 		return -E_INVAL;
 	}
-	if (!(perm & PTE_V)) {
+	if ((perm & PTE_V)==0||(perm&PTE_COW)!=0) {
 		return -E_INVAL;
 	}
 	if ((r = envid2env(envid, &env, 0)) < 0) {
@@ -202,11 +202,11 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
 
     //your code here
-	if (srcva >= UTOP || srcva < 0 || dstva >= UTOP || dstva < 0) {
+	if (srcva>=UTOP || srcva<0 || dstva>=UTOP || dstva<0) {
 		return -E_INVAL;
 	}
 
-	if (!(perm & PTE_V)) {
+	if ((perm&PTE_V)==0) {
 		return -E_INVAL;
 	}
 
@@ -282,7 +282,7 @@ int sys_env_alloc(void)
 		return r;
 	}
 	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
-		  (void *) &(e->env_tf) - sizeof(struct Trapframe),
+		  (void *) (&(e->env_tf) - sizeof(struct Trapframe)),
 		  sizeof(struct Trapframe));
 	e->env_tf.pc = e->env_tf.cp0_epc;
 	e->env_status = ENV_NOT_RUNNABLE;
@@ -317,8 +317,8 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
 		return -E_INVAL;
 	} else {
-		if (status == ENV_FREE) {
-			env_destroy(env);
+		if (status == ENV_RUNNABLE) {
+			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
 		}
 		env->env_status = status;
 	}
@@ -410,28 +410,31 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	struct Env *e;
 	struct Page *p;
 	
-	if (srcva >= UTOP || srcva < 0) {
+	if (srcva >= UTOP || srcva != 0) {
 		return -E_INVAL;
 	}
-	if ((r = envid2env(envid, &e, 0)) < 0) {
+	if ((r = envid2env(envid, &e, 0)) != 0) {
 		return r;
 	}
-	if (e->env_ipc_recving == 0) {
+	if (e->env_ipc_recving != 1) {
 		return -E_IPC_NOT_RECV;
 	}
 	if (srcva != 0) {
 		e->env_ipc_perm = perm|PTE_V|PTE_R;
-		if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == NULL) {
+	/*	if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == 0) {
 			return -E_INVAL;
 		} else if (page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm) < 0) {
 			return -E_INVAL;
+		}*/
+		if ((r = sys_mem_map(sysno,curenv->env_id, srcva, envid, e->env_ipc_dstva, perm)) < 0) {
+			return r;
 		}
 	}
 	e->env_ipc_recving = 0;
 	e->env_status = ENV_RUNNABLE;
 	e->env_ipc_value = value;
 	e->env_ipc_from = curenv->env_id;
-	e->env_ipc_perm = perm|PTE_V|PTE_R;
+
 	return 0;
 }
 

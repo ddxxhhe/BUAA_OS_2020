@@ -86,9 +86,9 @@ pgfault(u_int va)
 	int perm;
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
     va = ROUNDDOWN(va, BY2PG);
-	tmp = USTACKTOP;
+	tmp = UTEXT-BY2PG;
 	perm = (*vpt)[VPN(va)] & 0xfff;
-	if (!(perm & PTE_COW)) {
+	if ((perm & PTE_COW)==0) {
 		user_panic("error");
 	} else {
 		if (syscall_mem_alloc(0, tmp, PTE_V|PTE_R) < 0) {
@@ -135,9 +135,9 @@ duppage(u_int envid, u_int pn)
 {
 	u_int addr;
 	u_int perm;
-	addr = pn << PGSHIFT;
-	perm = (*vpt)[pn] & 0xfff;
-	if (!(perm & PTE_V)) {
+	addr = pn*BY2PG;
+	perm = ((*vpt)[pn]) & 0xFFF;
+/*	if (!(perm & PTE_V)) {
 		return;
 	} else {
 		if ((perm & PTE_R) && (perm & PTE_COW)==0 && (perm & PTE_LIBRARY)==0) {
@@ -152,6 +152,25 @@ duppage(u_int envid, u_int pn)
 				user_panic("map error");
 			}
 		}
+	}*/
+	if ((perm&PTE_R) || (perm&PTE_LIBRARY) && (perm&PTE_V)) {
+	/*	if (syscall_mem_map(0,addr,envid,addr,perm|PTE_COW)<0) {
+			user_panic("mem_map son error");
+		}
+		if (syscall_mem_map(0,addr,0,addr,perm|PTE_COW)<0) {
+			user_panic("mem_map father error");
+		}*/
+		syscall_mem_map(0,addr,envid,addr,perm);
+	}
+	else if((perm&PTE_V) && ((perm&PTE_COW) || (perm&PTE_R))){
+	/*	if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
+			user_panic("mem_map son error");
+		}*/
+		syscall_mem_map(0,addr,envid,addr,perm|PTE_COW);
+		syscall_mem_map(0,addr,0,addr,perm|PTE_COW);
+	}
+	else {
+		syscall_mem_map(0,addr,envid,addr,perm);
 	}
 	//	user_panic("duppage not implemented");
 }
@@ -176,7 +195,7 @@ fork(void)
 	extern struct Env *env;
 	int ret;
 	u_int i;
-
+	u_int j;
 
 	//The parent installs pgfault using set_pgfault_handler
 	set_pgfault_handler(pgfault);
@@ -184,25 +203,39 @@ fork(void)
 	//alloc a new alloc
 	newenvid = syscall_env_alloc();
 	if (newenvid == 0) {
-		env = envs + ENVX(syscall_getenvid());
+		env = &envs[ENVX(syscall_getenvid())];
 		return 0;
 	}
-
-	for (i = 0; i < (UTOP - 2*BY2PG); i+=BY2PG) {
-		int perm1 = ((Pde *)(*vpt))[i >> PDSHIFT];
-		int perm2 = ((Pde *)(*vpd))[i >> PDSHIFT];
-		if ((perm1 & PTE_V) && (perm2 & PTE_V)) {
+	u_int temp;
+	for (i = 0; i < 1024; i++) {
+//		int perm1 = ((Pde *)(*vpt))[i >> PDSHIFT];
+//		int perm2 = ((Pde *)(*vpd))[i >> PDSHIFT];
+/*		if (((*vpd)[VPN(i)/1024])!=0 && ((*vpt)[VPN(i)])!=0) {
 			duppage(newenvid, VPN(i));
+		}*/
+		if ((*vpd)[i] & PTE_V) {
+			for (j = 0; j < 1024; j++) {
+				temp = (i << 10) + j;
+				if ((temp << PGSHIFT) >= (UTOP-2*BY2PG)) {
+					break;
+				}
+				if ((*vpt)[temp] & PTE_V) {
+					duppage(newenvid, temp);
+				}
+			}
 		}
 	}
 	if ((ret = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R)) < 0) {
 		user_panic("fork mem_alloc error");
+		return 0;
 	}
 	if ((ret = syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP)) < 0) {
 		user_panic("fork pgfault error");
+		return 0;
 	}
 	if ((ret = syscall_set_env_status(newenvid, ENV_RUNNABLE)) < 0) {
 		user_panic("fork set status error");
+		return 0;
 	}
 	return newenvid;
 }

@@ -12,17 +12,73 @@
  *  3. CANNOT use `return` statement!
  */
 /*** exercise 3.14 ***/
-int curtime = 0;
-int x = 0;
-struct Env* cur = NULL;
+//int curtime = 0;
+//int x = 0;
+//struct Env* cur = NULL;
 void sched_yield(void)
 {   
+	static int x = 0;
+	static int time_count = 0;
+	static struct Env *e = NULL;
+	static int i = 0;
+	static int change = 0;
+	if (change) {
+		change = 0;
+		e = NULL;
+	}
+	while(e == NULL || e->env_status != ENV_RUNNABLE) {
+		LIST_FOREACH(e, &env_sched_list[x], env_sched_link) {
+			if ((e->env_status == ENV_RUNNABLE) && (e->env_pri > 0)) {
+				time_count = e->env_pri;
+				break;
+			}
+		}
+		if (e!=NULL) {
+			break;
+		}
+		x = (x + 1) % 2;
+	}
+	time_count--;
+	if (time_count <= 0) {
+		LIST_REMOVE(e, env_sched_link);
+		LIST_INSERT_HEAD(&env_sched_list[(x+1)%2], e, env_sched_link);
+	}
+	env_run(e);
+/*	static int count = 0;
+	static int t = 0;
+	count++;
+	if (curenv == NULL || count >= curenv->env_pri) {
+		if (curenv != NULL) {
+			LIST_INSERT_HEAD(&env_sched_list[1 - t], curenv, env_sched_link);
+		}
+		int flag = 0;
+		while(1) {
+			struct Env *e = LIST_FIRST(&env_sched_list[t]);
+			if (e == NULL) {
+				if (flag == 0) {
+					flag = 1;
+				} else {
+					return;
+				}
+				t = 1 - t;
+				continue;
+			}
+			if (e->env_status == ENV_RUNNABLE) {
+				LIST_REMOVE(e, env_sched_link);
+				count = 0;
+				env_run(e);
+				break;
+			}
+		}
+	} else {
+		env_run(curenv);
+	}
 	
 //    static int curtime = 0; // remaining time slices of current env
 //    static int x = 0; // current env_sched_list index
     
 
-    /* hint:
+     * hint:
      *  1. if (count==0), insert `e` into `env_sched_list[1-point]`
      *     using LIST_REMOVE and LIST_INSERT_TAIL.
      *  2. if (env_sched_list[point] is empty), point = 1 - point;
@@ -36,7 +92,7 @@ void sched_yield(void)
      */
 
 //	static struct Env *cur = NULL;
-	cur = curenv;
+//	cur = curenv;
 	/*while (count == 0) {
 		if (LIST_FIRST(&env_sched_list[point]) == NULL) {
 			point = 1 - point;
@@ -70,7 +126,7 @@ void sched_yield(void)
 	count--;
 	env_run(cur);
 */
-/*	while (curtime <= 0 || cur && cur->env_status != ENV_RUNNABLE) {
+/*	while (curtime <= 0 || cur == NULL || cur->env_status == ENV_NOT_RUNNABLE) {
 		if (cur != NULL) {
 			LIST_REMOVE(cur, env_sched_link);
 			LIST_INSERT_HEAD(&env_sched_list[1 - x], cur, env_sched_link);
@@ -119,7 +175,7 @@ void sched_yield(void)
 		cur = LIST_FIRST(&env_sched_list[x]);
 		curtime = cur->env_pri;
 	}*/
-	if (curtime == 0 || cur == NULL || cur->env_status == ENV_NOT_RUNNABLE ) {
+/*	if (curtime == 0 || cur == NULL || cur->env_status == ENV_NOT_RUNNABLE ) {
 		do {
 			cur = LIST_FIRST(&env_sched_list[x]);
 			if (cur == NULL) {
@@ -138,5 +194,5 @@ void sched_yield(void)
 	}
 	curtime--;
 	cur->env_runs++;
-	env_run(cur);
+	env_run(cur);*/
 }
