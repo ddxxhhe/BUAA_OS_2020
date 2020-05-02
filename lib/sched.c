@@ -17,7 +17,47 @@
 //struct Env* cur = NULL;
 void sched_yield(void)
 {   
-	static int x = 0;
+	static int cur_time = 1;
+	static int cur_index = 0;
+	struct Env *e = NULL;
+	int left = 0;
+	cur_time--;
+	if (cur_time <= 0 || curenv == NULL || curenv->env_status!=ENV_RUNNABLE) {
+		left = 0;
+		while(1) {
+			if (LIST_EMPTY(&env_sched_list[cur_index])) {
+				cur_index = !cur_index;
+				break;
+			}
+			e = LIST_FIRST(&env_sched_list[cur_index]);
+			if (e->env_status == ENV_RUNNABLE){
+				left = 1;
+				break;
+			}
+			LIST_REMOVE(e,env_sched_link);
+			LIST_INSERT_HEAD(&env_sched_list[!cur_index],e,env_sched_link);
+		}
+		if (!left) {
+			while(1) {
+				if (LIST_EMPTY(&env_sched_list[cur_index])){
+					break;
+				}
+				e = LIST_FIRST(&env_sched_list[cur_index]);
+				if (e->env_status == ENV_RUNNABLE) {
+					left = 1;
+					break;
+				}
+				LIST_REMOVE(e,env_sched_link);
+				LIST_INSERT_HEAD(&env_sched_list[!cur_index],e,env_sched_link);
+			}
+		}
+		LIST_REMOVE(e, env_sched_link);
+		LIST_INSERT_HEAD(&env_sched_list[!cur_index],e,env_sched_link);
+		cur_time=e->env_pri;
+		env_run(e);
+	}
+	env_run(curenv);
+/*	static int x = 0;
 	static int time_count = 0;
 	static struct Env *e = NULL;
 	static int i = 0;
@@ -43,7 +83,7 @@ void sched_yield(void)
 		LIST_REMOVE(e, env_sched_link);
 		LIST_INSERT_HEAD(&env_sched_list[(x+1)%2], e, env_sched_link);
 	}
-	env_run(e);
+	env_run(e);*/
 /*	static int count = 0;
 	static int t = 0;
 	count++;

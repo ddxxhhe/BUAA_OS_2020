@@ -83,6 +83,27 @@ static void
 pgfault(u_int va)
 {
 	u_int tmp;
+	int ret;
+	if ((((Pte *)(*vpt))[VPN(va)] & PTE_COW) == 0) {
+		user_panic("not cow page");
+	}
+	va = ROUNDDOWN(va, BY2PG);
+	tmp = USTACKTOP;
+	ret = syscall_mem_alloc(0, tmp, PTE_V|PTE_R);
+	if (ret < 0) {
+		user_panic("user pgfault alloc error");
+	}
+	user_bcopy(va, tmp, BY2PG);
+	ret = syscall_mem_map(0, tmp, 0, va, PTE_V|PTE_R);
+	if (ret < 0) {
+		user_panic("user pgfault map error");
+	}
+	ret = syscall_mem_unmap(0, tmp);
+	if (ret < 0) {
+		user_panic("user pgfault unmap error");
+	}
+	return;
+/*	u_int tmp;
 	int perm;
 	//	writef("fork.c:pgfault():\t va:%x\n",va);
     va = ROUNDDOWN(va, BY2PG);
@@ -102,7 +123,7 @@ pgfault(u_int va)
 			user_panic("pgfault unmap error");
 		}
 	}
-	return;
+	return;*/
     //map the new page at a temporary place
 
 	//copy the content
@@ -135,8 +156,8 @@ duppage(u_int envid, u_int pn)
 {
 	u_int addr;
 	u_int perm;
-	addr = pn<<PGSHIFT;
-	perm = ((*vpt)[pn]) & 0xFFF;
+	addr = pn << PGSHIFT;
+	perm = ((Pte *)(*vpt))[pn] & 0xFFF;
 
 	if ((perm & PTE_R)==0) {
 		if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
@@ -239,27 +260,23 @@ fork(void)
 		}*/
 		if ((*vpd)[i] & PTE_V) {
 			for (j = 0; j < 1024; j++) {
-				temp = (i << 10) + j;
-				if ((temp << PGSHIFT) >= (UTOP-2*BY2PG)) {
-					break;
-				}
-				if ((*vpt)[temp] & PTE_V) {
-					duppage(newenvid, temp);
+//				temp = (i << 10) + j;
+				if ((i << PDSHIFT) + (j << PGSHIFT) < UTOP - 2*BY2PG) {
+					if ((*vpt)[(i << 10) + j] & PTE_V) {
+						duppage(newenvid, (i<<10)+j);
+					}
 				}
 			}
 		}
 	}
 	if ((ret = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R)) < 0) {
 		user_panic("fork mem_alloc error");
-		return 0;
 	}
 	if ((ret = syscall_set_pgfault_handler(newenvid, __asm_pgfault_handler, UXSTACKTOP)) < 0) {
 		user_panic("fork pgfault error");
-		return 0;
 	}
 	if ((ret = syscall_set_env_status(newenvid, ENV_RUNNABLE)) < 0) {
 		user_panic("fork set status error");
-		return 0;
 	}
 	return newenvid;
 }

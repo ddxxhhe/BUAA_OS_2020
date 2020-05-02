@@ -67,7 +67,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
 	e = &envs[index];
 
     if (e->env_status == ENV_FREE || e->env_id != envid) {
-        *penv = 0;
+        *penv = NULL;
         return -E_BAD_ENV;
     }
 
@@ -139,11 +139,11 @@ env_setup_vm(struct Env *e)
     /* Step 1: Allocate a page for the page directory
      * using a function you completed in the lab2 and add its pp_ref.
      * pgdir is the page directory of Env e, assign value for it. */
-    if (page_alloc(&p) < 0) {
+    if ((r = page_alloc(&p)) < 0) {
         panic("env_setup_vm - page alloc error\n");
         return r;
     }
-	(p->pp_ref) += 1;
+	(p->pp_ref)++;
 	pgdir = (Pde *)page2kva(p);
 
     /*Step 2: Zero pgdir's field before UTOP. */
@@ -160,7 +160,7 @@ env_setup_vm(struct Env *e)
      *  Can you use boot_pgdir as a template?
      */
 
-	for (i = PDX(UTOP); i < (BY2PG/4) ; i++) {
+	for (i = PDX(UTOP); i < PTE2PT ; i++) {
 		*(pgdir + i) = *(boot_pgdir + i);
 	}
 	e->env_pgdir = pgdir;
@@ -215,13 +215,14 @@ env_alloc(struct Env **new, u_int parent_id)
 	e->env_status = ENV_RUNNABLE;
 	e->env_tf.regs[29] = USTACKTOP;
 	e->env_parent_id = parent_id;
+	e->env_runs = 0;
     /*Step 4: Focus on initializing the sp register and cp0_status of env_tf field, located at this new Env. */
     e->env_tf.cp0_status = 0x10001004;
     /*Step 5: Remove the new Env from env_free_list. */
 //	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
-	*new = e;
 	LIST_REMOVE(e, env_link);
 	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
+	*new = e;
 	return 0;
 }
 
@@ -315,10 +316,12 @@ load_icode(struct Env *e, u_char *binary, u_int size)
 	}
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: Should the user-stack be writable? */
-	page_insert(e->env_pgdir, p, USTACKTOP-BY2PG, perm);
+	if ((r = page_insert(e->env_pgdir, p, USTACKTOP-BY2PG, perm))<0) {
+		return;
+	}
 
     /*Step 3:load the binary using elf loader. */
-	if ((r = load_elf(binary, size, &entry_point, e, load_icode_mapper)) < 0) {
+	if ((r = load_elf(binary, size, &entry_point, (void *)e, load_icode_mapper)) < 0) {
 		return;
 	}
 
@@ -454,13 +457,16 @@ env_run(struct Env *e)
     *  switch the context and save the registers. You can imitate env_destroy() 's behaviors.*/
 
 	if (curenv) {
-		curenv->env_tf = *((struct Trapframe*)(TIMESTACK-sizeof(struct Trapframe)));
+		struct Trapframe *old;
+		old = (struct Trapframe *)(TIMESTACK - sizeof(struct Trapframe));
+		bcopy(old, &(curenv->env_tf),sizeof(struct Trapframe));
+//		curenv->env_tf = *((struct Trapframe*)(TIMESTACK-sizeof(struct Trapframe)));
 		curenv->env_tf.pc = curenv->env_tf.cp0_epc;
 	}
     /*Step 2: Set 'curenv' to the new environment. */
 	curenv = e;
 	e->env_runs++;
-	curenv->env_status = ENV_RUNNABLE;
+//	curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
 	lcontext((u_int)e->env_pgdir);
 //	printf("lcontext done!\n");

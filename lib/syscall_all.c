@@ -116,7 +116,7 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	// Your code here.
 	struct Env *env;
 	int r;
-	if ((r = envid2env(envid, &env, 0)) < 0) {
+	if ((r = envid2env(envid, &env, 1)) < 0) {
 		return r;
 	}
 	env->env_pgfault_handler = func;
@@ -151,13 +151,13 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	struct Page *ppage;
 	int r;
 	
-	if (va >= UTOP || va < 0) {
+	if (va >= UTOP) {
 		return -E_INVAL;
 	}
-	if ((perm & PTE_V)==0) {
+	if ((perm & PTE_COW)||(!(perm & PTE_V))) {
 		return -E_INVAL;
 	}
-	if ((r = envid2env(envid, &env, 0)) < 0) {
+	if ((r = envid2env(envid, &env, 1)) < 0) {
 		return r;
 	}
 	if ((r = page_alloc(&ppage)) < 0) {
@@ -200,25 +200,30 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
 
     //your code here
-	if (srcva>=UTOP || srcva<0 || dstva>=UTOP || dstva<0) {
+	if (srcva>=UTOP || dstva>=UTOP) {
 		return -E_INVAL;
 	}
 
-	if ((perm&PTE_V)==0) {
+	if (!(perm&PTE_V)) {
 		return -E_INVAL;
 	}
 
-	if ((r = envid2env(srcid, &srcenv, 0)) < 0) {
+	if ((r = envid2env(srcid, &srcenv, 1)) < 0) {
 		return r;
 	}
 
-	if ((r = envid2env(dstid, &dstenv, 0)) < 0) {
+	if ((r = envid2env(dstid, &dstenv, 1)) < 0) {
 		return r;
 	}
 
 	if ((ppage = page_lookup(srcenv->env_pgdir, round_srcva, &ppte)) == NULL) {
 		return -E_INVAL;
 	}
+
+	if (((*ppte & PTE_R) == 0) && ((perm & PTE_R) == 1)) {
+		return -E_INVAL;
+	}
+	ppage = pa2page(PTE_ADDR(*ppte));
 
 	if ((r = page_insert(dstenv->env_pgdir, ppage, round_dstva, perm)) < 0) {
 		return r;
@@ -244,11 +249,11 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 	int r;
 	struct Env *env;
 	
-	if (va >= UTOP || va < 0) {
+	if (va >= UTOP) {
 		return -E_INVAL;
 	}
 
-	if ((r = envid2env(envid, &env, 0)) < 0) {
+	if ((r = envid2env(envid, &env, 1)) < 0) {
 		return r;
 	}
 
@@ -280,7 +285,7 @@ int sys_env_alloc(void)
 		return r;
 	}
 	bcopy((void *) KERNEL_SP - sizeof(struct Trapframe),
-		  (void *) (&(e->env_tf)),sizeof(struct Trapframe));
+		  (void *)&(e->env_tf), sizeof(struct Trapframe));
 	e->env_tf.pc = e->env_tf.cp0_epc;
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_pri = curenv->env_pri;
@@ -308,7 +313,7 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int r;
-	if ((r = envid2env(envid, &env, 0)) < 0) {
+	if ((r = envid2env(envid, &env, 1)) < 0) {
 		return r;
 	}
 	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
@@ -317,7 +322,12 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 		if (status == ENV_RUNNABLE) {
 			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
 		}
-		env->env_status = status;
+		if (status == ENV_FREE) {
+			env_destroy(env);
+		} else {
+			env->env_status = status;
+		}
+//		env->env_status = status;
 	}
 	return 0;
 	//	panic("sys_env_set_status not implemented");
@@ -407,43 +417,37 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	struct Env *e;
 	struct Page *p;
 	Pte *pte;
-	
-	if (srcva >= UTOP) {
+
+	if (srcva>=UTOP) {
 		return -E_INVAL;
 	}
-	if ((r = envid2env(envid, &e, 0)) != 0) {
-		return r;
+
+	if (envid2env(envid, &e, 0) < 0) {
+		return -E_INVAL;
 	}
 	if (e->env_ipc_recving == 0) {
 		return -E_IPC_NOT_RECV;
 	}
 
-/*	if (srcva != 0) {
-		e->env_ipc_perm = perm|PTE_V|PTE_R;
-	*	if ((p = page_lookup(curenv->env_pgdir, srcva, 0)) == 0) {
-			return -E_INVAL;
-		} else if (page_insert(e->env_pgdir, p, e->env_ipc_dstva, perm) < 0) {
-			return -E_INVAL;
-		}*
-		if ((r = sys_mem_map(sysno,curenv->env_id, srcva, envid, e->env_ipc_dstva, perm)) < 0) {
-			return r;
-		}
-	}*/
-	e->env_ipc_recving = 0;
-	e->env_status = ENV_RUNNABLE;
 	e->env_ipc_value = value;
 	e->env_ipc_from = curenv->env_id;
 	e->env_ipc_perm = perm;
+	e->env_ipc_recving = 0;
+	e->env_status = ENV_RUNNABLE;
 
 	if (srcva != 0) {
-		p = page_lookup(curenv->env_pgdir, srcva, &pte);
-		if (p==NULL){
+		e->env_ipc_perm = perm|PTE_V|PTE_R;
+		if((p = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL){
+			return -E_INVAL;
+		} 
+		if (page_insert(e->env_pgdir,p,e->env_ipc_dstva,perm)<0) {
 			return -E_INVAL;
 		}
-		if ((r=page_insert(e->env_pgdir,p,e->env_ipc_dstva,perm))<0) {
-			return r;
-		}
 	}
+//	e->env_ipc_recving = 0;
+//	e->env_status = ENV_RUNNABLE;
+//	e->env_ipc_value = value;
+//	e->env_ipc_from = curenv->env_id;
 	return 0;
 }
 
