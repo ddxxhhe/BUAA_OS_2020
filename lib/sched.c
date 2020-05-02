@@ -19,7 +19,7 @@ void sched_yield(void)
 {   
 	static int cur_time = 1;
 	static int cur_index = 0;
-	struct Env *e = NULL;
+	struct Env *e;
 	int left = 0;
 	cur_time--;
 	if (cur_time <= 0 || curenv == NULL || curenv->env_status!=ENV_RUNNABLE) {
@@ -40,7 +40,9 @@ void sched_yield(void)
 		if (!left) {
 			while(1) {
 				if (LIST_EMPTY(&env_sched_list[cur_index])){
-					break;
+//					panic("error");
+//					break;
+					continue;
 				}
 				e = LIST_FIRST(&env_sched_list[cur_index]);
 				if (e->env_status == ENV_RUNNABLE) {
@@ -55,8 +57,10 @@ void sched_yield(void)
 		LIST_INSERT_HEAD(&env_sched_list[!cur_index],e,env_sched_link);
 		cur_time=e->env_pri;
 		env_run(e);
+//		panic("error");
 	}
 	env_run(curenv);
+//	panic("end");
 /*	static int x = 0;
 	static int time_count = 0;
 	static struct Env *e = NULL;

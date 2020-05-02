@@ -82,7 +82,7 @@ int envid2env(u_int envid, struct Env **penv, int checkperm)
 	
 	if (checkperm == 1) {
 		if (e != curenv && e->env_parent_id != curenv->env_id) {
-			*penv = NULL;
+			*penv = 0;
 			return -E_BAD_ENV;
 		}
 	}
@@ -139,8 +139,8 @@ env_setup_vm(struct Env *e)
     /* Step 1: Allocate a page for the page directory
      * using a function you completed in the lab2 and add its pp_ref.
      * pgdir is the page directory of Env e, assign value for it. */
-    if ((r = page_alloc(&p)) < 0) {
-        panic("env_setup_vm - page alloc error\n");
+    if ((r = page_alloc(&p)) != 0) {
+//        panic("env_setup_vm - page alloc error\n");
         return r;
     }
 	(p->pp_ref)++;
@@ -148,7 +148,7 @@ env_setup_vm(struct Env *e)
 
     /*Step 2: Zero pgdir's field before UTOP. */
 	for (i = 0; i < PDX(UTOP); i++) {
-		*(pgdir + i) = 0;
+		pgdir[i] = 0;
 	}
 
     /*Step 3: Copy kernel's boot_pgdir to pgdir. */
@@ -161,7 +161,9 @@ env_setup_vm(struct Env *e)
      */
 
 	for (i = PDX(UTOP); i < PTE2PT ; i++) {
+		if (i != PDX(VPT) && i != PDX(UVPT)) {
 		*(pgdir + i) = *(boot_pgdir + i);
+		}
 	}
 	e->env_pgdir = pgdir;
 	e->env_cr3 = PADDR(pgdir);
@@ -311,19 +313,17 @@ load_icode(struct Env *e, u_char *binary, u_int size)
     u_long perm = PTE_V|PTE_R;
 
     /*Step 1: alloc a page. */
-	if ((r = page_alloc(&p)) < 0) {
+	if ((r = page_alloc(&p)) != 0) {
 		return;
 	}
     /*Step 2: Use appropriate perm to set initial stack for new Env. */
     /*Hint: Should the user-stack be writable? */
-	if ((r = page_insert(e->env_pgdir, p, USTACKTOP-BY2PG, perm))<0) {
+	if ((r = page_insert(e->env_pgdir, p, USTACKTOP-BY2PG, perm)) != 0) {
 		return;
 	}
 
     /*Step 3:load the binary using elf loader. */
-	if ((r = load_elf(binary, size, &entry_point, (void *)e, load_icode_mapper)) < 0) {
-		return;
-	}
+	load_elf(binary, size, &entry_point, (void *)e, load_icode_mapper);
 
     /*Step 4:Set CPU's PC register as appropriate value. */
     e->env_tf.pc = entry_point;
@@ -345,7 +345,7 @@ env_create_priority(u_char *binary, int size, int priority)
 {
     struct Env *e;
     /*Step 1: Use env_alloc to alloc a new env. */
-	if (env_alloc(&e, 0) < 0) {
+	if (env_alloc(&e, 0) != 0) {
 		return;
 	}
     /*Step 2: assign priority to the new env. */
@@ -353,7 +353,7 @@ env_create_priority(u_char *binary, int size, int priority)
     /*Step 3: Use load_icode() to load the named elf binary,
       and insert it into env_sched_list using LIST_INSERT_HEAD. */
 	load_icode(e, binary, size);
-	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
+//	LIST_INSERT_HEAD(&env_sched_list[0], e, env_sched_link);
 }
 /* Overview:
  * Allocates a new env with default priority value.
@@ -465,7 +465,7 @@ env_run(struct Env *e)
 	}
     /*Step 2: Set 'curenv' to the new environment. */
 	curenv = e;
-	e->env_runs++;
+	curenv->env_runs++;
 //	curenv->env_status = ENV_RUNNABLE;
     /*Step 3: Use lcontext() to switch to its address space. */
 	lcontext((u_int)e->env_pgdir);

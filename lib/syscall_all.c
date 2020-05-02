@@ -64,8 +64,8 @@ u_int sys_getenvid(void)
 /*** exercise 4.6 ***/
 void sys_yield(void)
 {
-	bcopy((void *)(KERNEL_SP - sizeof(struct Trapframe)),
-		  (void *)(TIMESTACK - sizeof(struct Trapframe)),
+	bcopy((void *)KERNEL_SP - sizeof(struct Trapframe),
+		  (void *)TIMESTACK - sizeof(struct Trapframe),
 		  sizeof(struct Trapframe));
 	sched_yield();
 }
@@ -154,7 +154,7 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	if (va >= UTOP) {
 		return -E_INVAL;
 	}
-	if ((perm & PTE_COW)||(!(perm & PTE_V))) {
+	if (perm & PTE_COW) {
 		return -E_INVAL;
 	}
 	if ((r = envid2env(envid, &env, 1)) < 0) {
@@ -186,7 +186,6 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 				u_int perm)
 {
-	int ret;
 	int r;
 	u_int round_srcva, round_dstva;
 	struct Env *srcenv;
@@ -195,7 +194,6 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 	Pte *ppte;
 
 	ppage = NULL;
-	ret = 0;
 	round_srcva = ROUNDDOWN(srcva, BY2PG);
 	round_dstva = ROUNDDOWN(dstva, BY2PG);
 
@@ -204,9 +202,9 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 		return -E_INVAL;
 	}
 
-	if (!(perm&PTE_V)) {
-		return -E_INVAL;
-	}
+//	if (!(perm&PTE_V)) {
+//		return -E_INVAL;
+//	}
 
 	if ((r = envid2env(srcid, &srcenv, 1)) < 0) {
 		return r;
@@ -229,7 +227,7 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 		return r;
 	}
 
-	return ret;
+	return 0;
 }
 
 /* Overview:
@@ -245,7 +243,6 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 int sys_mem_unmap(int sysno, u_int envid, u_int va)
 {
 	// Your code here.
-	int ret = 0;
 	int r;
 	struct Env *env;
 	
@@ -259,7 +256,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 
 	page_remove(env->env_pgdir, va);
 
-	return ret;
+	return 0;
 	//	panic("sys_mem_unmap not implemented");
 }
 
@@ -313,15 +310,15 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	// Your code here.
 	struct Env *env;
 	int r;
-	if ((r = envid2env(envid, &env, 1)) < 0) {
-		return r;
-	}
 	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
 		return -E_INVAL;
 	} else {
-		if (status == ENV_RUNNABLE) {
-			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+		if ((r = envid2env(envid, &env, 1)) < 0) {
+			return r;
 		}
+//		if (status == ENV_RUNNABLE) {
+//			LIST_INSERT_HEAD(&env_sched_list[0], env, env_sched_link);
+//		}
 		if (status == ENV_FREE) {
 			env_destroy(env);
 		} else {
@@ -422,8 +419,8 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 		return -E_INVAL;
 	}
 
-	if (envid2env(envid, &e, 0) < 0) {
-		return -E_INVAL;
+	if ((r = envid2env(envid, &e, 0)) < 0) {
+		return r;
 	}
 	if (e->env_ipc_recving == 0) {
 		return -E_IPC_NOT_RECV;
@@ -436,11 +433,11 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	e->env_status = ENV_RUNNABLE;
 
 	if (srcva != 0) {
-		e->env_ipc_perm = perm|PTE_V|PTE_R;
+//		e->env_ipc_perm = perm|PTE_V|PTE_R;
 		if((p = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL){
 			return -E_INVAL;
 		} 
-		if (page_insert(e->env_pgdir,p,e->env_ipc_dstva,perm)<0) {
+		if (page_insert(e->env_pgdir,p,e->env_ipc_dstva,perm)!=0) {
 			return -E_INVAL;
 		}
 	}

@@ -157,7 +157,7 @@ duppage(u_int envid, u_int pn)
 	u_int addr;
 	u_int perm;
 	addr = pn << PGSHIFT;
-	perm = ((Pte *)(*vpt))[pn] & 0xFFF;
+	perm = ((Pte *)(*vpt))[pn] & 0xfff;
 
 	if ((perm & PTE_R)==0) {
 		if (syscall_mem_map(0,addr,envid,addr,perm)<0) {
@@ -248,17 +248,24 @@ fork(void)
 	//alloc a new alloc
 	newenvid = syscall_env_alloc();
 	if (newenvid == 0) {
-		env = &envs[ENVX(syscall_getenvid())];
+		env = envs + ENVX(syscall_getenvid());
 		return 0;
 	}
-	u_int temp;
-	for (i = 0; i < 1024; i++) {
+
+	for (i = 0; i < UTOP-2*BY2PG; i+=BY2PG) {
+		if ((((Pde *)(*vpd))[i >> PDSHIFT] & PTE_V) && (((Pte *)(*vpt))[i >> PGSHIFT] & PTE_V)) {
+			duppage(newenvid, VPN(i));
+		}
+	}
+
+//	u_int temp;
+//	for (i = 0; i < 1024; i++) {
 //		int perm1 = ((Pde *)(*vpt))[i >> PDSHIFT];
 //		int perm2 = ((Pde *)(*vpd))[i >> PDSHIFT];
 /*		if (((*vpd)[VPN(i)/1024])!=0 && ((*vpt)[VPN(i)])!=0) {
 			duppage(newenvid, VPN(i));
 		}*/
-		if ((*vpd)[i] & PTE_V) {
+/*		if ((*vpd)[i] & PTE_V) {
 			for (j = 0; j < 1024; j++) {
 //				temp = (i << 10) + j;
 				if ((i << PDSHIFT) + (j << PGSHIFT) < UTOP - 2*BY2PG) {
@@ -268,7 +275,7 @@ fork(void)
 				}
 			}
 		}
-	}
+	}*/
 	if ((ret = syscall_mem_alloc(newenvid, UXSTACKTOP - BY2PG, PTE_V|PTE_R)) < 0) {
 		user_panic("fork mem_alloc error");
 	}
