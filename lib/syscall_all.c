@@ -116,7 +116,7 @@ int sys_set_pgfault_handler(int sysno, u_int envid, u_int func, u_int xstacktop)
 	// Your code here.
 	struct Env *env;
 	int r;
-	if ((r = envid2env(envid, &env, 1)) < 0) {
+	if ((r = envid2env(envid, &env, 0)) < 0) {
 		return r;
 	}
 	env->env_pgfault_handler = func;
@@ -154,10 +154,10 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 	if (va >= UTOP) {
 		return -E_INVAL;
 	}
-	if (perm & PTE_COW) {
+	if ((perm & PTE_COW) || (!(perm & PTE_V))) {
 		return -E_INVAL;
 	}
-	if ((r = envid2env(envid, &env, 1)) < 0) {
+	if ((r = envid2env(envid, &env, 0)) < 0) {
 		return r;
 	}
 	if ((r = page_alloc(&ppage)) < 0) {
@@ -202,15 +202,15 @@ int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 		return -E_INVAL;
 	}
 
-//	if (!(perm&PTE_V)) {
-//		return -E_INVAL;
-//	}
+	if (!(perm&PTE_V)) {
+		return -E_INVAL;
+	}
 
-	if ((r = envid2env(srcid, &srcenv, 1)) < 0) {
+	if ((r = envid2env(srcid, &srcenv, 0)) < 0) {
 		return r;
 	}
 
-	if ((r = envid2env(dstid, &dstenv, 1)) < 0) {
+	if ((r = envid2env(dstid, &dstenv, 0)) < 0) {
 		return r;
 	}
 
@@ -250,7 +250,7 @@ int sys_mem_unmap(int sysno, u_int envid, u_int va)
 		return -E_INVAL;
 	}
 
-	if ((r = envid2env(envid, &env, 1)) < 0) {
+	if ((r = envid2env(envid, &env, 0)) < 0) {
 		return r;
 	}
 
@@ -313,7 +313,7 @@ int sys_set_env_status(int sysno, u_int envid, u_int status)
 	if (status != ENV_FREE && status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
 		return -E_INVAL;
 	} else {
-		if ((r = envid2env(envid, &env, 1)) < 0) {
+		if ((r = envid2env(envid, &env, 0)) < 0) {
 			return r;
 		}
 //		if (status == ENV_RUNNABLE) {
