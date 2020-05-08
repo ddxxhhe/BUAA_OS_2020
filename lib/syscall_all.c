@@ -448,27 +448,27 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 	return 0;
 }
 
-int sys_ipc_can_multi_send(int sysno, u_int value, u_int srcva, u_int perm, int env_count) {
+int sys_ipc_can_multi_send(int sysno, u_int value, u_int srcva, u_int perm, int env_count, ...) {
 	struct Page *p;
 	Pte *pte;
-	Env *env;
-	int temp, r;
+	struct Env *env;
+	int temp, r, i;
 	va_list ap;
 	va_start(ap, env_count);
-	for (int i = 0; i < env_count; i++) {
+	for (i = 0; i < env_count; i++) {
 		temp = va_arg(ap, u_int);
-		if ((r = envid2env(temp, &env, 0)) < 0) {
+		if ((r = envid2env((int)temp, &env, 0)) < 0) {
 			return r;
 		}
 		if (env->env_ipc_recving != 1) {
 			return -E_IPC_NOT_RECV;
 		}
 	}
-	va_end(ap);
+//	va_end(ap);
 	va_start(ap, env_count);
-	for (int i = 0; i < env_count; i++) {
+	for (i = 0; i < env_count; i++) {
 		temp = va_arg(ap, u_int);
-		if ((r = envid2env(temp, &env, 0)) < 0) {
+		if ((r = envid2env((int)temp, &env, 0)) < 0) {
 			return r;
 		}
 		env->env_ipc_value = value;
@@ -484,5 +484,6 @@ int sys_ipc_can_multi_send(int sysno, u_int value, u_int srcva, u_int perm, int 
 			page_insert(env->env_pgdir, p, env->env_ipc_dstva, perm);
 		}
 	}
+	va_end(ap);
 	return 0;
 }
