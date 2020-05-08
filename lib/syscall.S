@@ -53,7 +53,7 @@ BD_IF_END:
 	addiu s1, s0, 0
 	addiu s0, s0, 2
 	sll s0, s0, 2
-	sub s6, sp, s0
+	add sp, sp, s0
 
 	sub s1, s1, 3
 	li s2, 16
@@ -62,9 +62,9 @@ loop:
 	blez s1, end
 	addiu s2, s2, 4
 	add s3, s2, t0
-	add s4, s2, s6
+	add s4, s2, sp
 	sub s4, s4, 4
-	lw s5, 0(s2)
+	lw s5, 0(s3)
 	sw s5, 0(s4)
 	sub s1, s1, 1
 	j loop
@@ -74,8 +74,8 @@ end:
     nop
     
     // TODO: Resume current kernel stack
-    addiu sp, sp, 24
-
+//    addiu sp, sp, 24
+	add     sp, sp, s0
     sw      v0, TF_REG2(sp)             // Store return value of function sys_* (in $v0) into trapframe
 
     j       ret_from_exception          // Return from exeception
@@ -99,3 +99,4 @@ sys_call_table:                         // Syscall Table
     .word sys_ipc_can_send
     .word sys_ipc_recv
     .word sys_cgetc
+	.word sys_super_multi_parameter
