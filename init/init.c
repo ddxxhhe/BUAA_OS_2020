@@ -19,7 +19,9 @@ void mips_init()
 	env_init();
 	
 //	ENV_CREATE(user_fktest);
-	ENV_CREATE(user_pingpong);
+//	ENV_CREATE(user_pingpong);
+	ENV_CREATE_PRIORITY(user_a_c, 6);
+	ENV_CREATE_PRIORITY(user_b, 6);
 	
     trap_init();
 	kclock_init();
@@ -72,4 +74,8 @@ void bzero(void *b, size_t len)
 		*(char *)b++ = 0;
 	}		
 	
+}
+
+int sys_super_multi_parameter(int sysno, u_int a, u_int b, u_int c, u_int d, u_int e, u_int f, u_int g, u_int h) {
+	;
 }

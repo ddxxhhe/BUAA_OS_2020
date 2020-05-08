@@ -41,7 +41,7 @@ int fork(void);
 void user_bcopy(const void *src, void *dst, size_t len);
 void user_bzero(void *v, u_int n);
 //////////////////////////////////////////////////syscall_lib
-extern int msyscall(int, int, int, int, int, int);
+extern int msyscall(int, int, ...);
 
 void syscall_putchar(char ch);
 u_int syscall_getenvid(void);
@@ -53,6 +53,7 @@ int syscall_mem_alloc(u_int envid, u_int va, u_int perm);
 int syscall_mem_map(u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 					u_int perm);
 int syscall_mem_unmap(u_int envid, u_int va);
+int syscall_ipc_can_multi_send(u_int value, u_int srcva, u_int perm, int env_count, ...);
 
 inline static int syscall_env_alloc(void)
 {
@@ -76,6 +77,7 @@ int strcmp(const char *p, const char *q);
 // ipc.c
 void	ipc_send(u_int whom, u_int val, u_int srcva, u_int perm);
 u_int	ipc_recv(u_int *whom, u_int dstva, u_int *perm);
+int 	ipc_send_double(u_int envid_1, u_int envid_2, int value, u_int srcva, u_int perm);
 
 // wait.c
 void wait(u_int envid);

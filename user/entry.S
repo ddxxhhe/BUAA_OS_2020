@@ -106,3 +106,24 @@ nop
 		jr	k0			//
 		lw	sp,TF_REG29(sp)  /* Deallocate stack */  
 
+.text
+.global syscall_ipc_can_multi_send
+syscall_ipc_can_multi_send:
+	sw a0, 0(sp)
+	sw a1, 4(sp)
+	sw a2, 8(sp)
+	sw a3, 12(sp)
+	li a0, 9543
+	lw a2, 0(sp)
+	lw a3, 4(sp)
+	lw t0, 12(sp)
+	addi a1, t0, 4
+	addi sp, sp, -8
+	sw a0, 0(sp)
+	sw a1, 4(sp)
+	nop
+	syscall
+	nop
+	addi sp, sp, 8
+	jr ra
+	nop
