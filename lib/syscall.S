@@ -42,10 +42,34 @@ BD_IF_END:
 	lw a1, TF_REG5(sp)
 	lw a2, TF_REG6(sp)
 	lw a3, TF_REG7(sp)
-    addiu sp, sp, -24
-	sw t3, 16(sp)
-	sw t4, 20(sp)
-    
+//    addiu sp, sp, -24
+//	sw t3, 16(sp)
+//	sw t4, 20(sp)
+	addiu s0, a1, 0
+	addiu a1, a2, 0
+	addiu a2, a3, 0
+	addiu a3, t3, 0
+
+	addiu s1, s0, 0
+	addiu s0, s0, 2
+	sll s0, s0, 2
+	sub s6, sp, s0
+
+	sub s1, s1, 3
+	li s2, 16
+
+loop:
+	blez s1, end
+	addiu s2, s2, 4
+	add s3, s2, t0
+	add s4, s2, s6
+	sub s4, s4, 4
+	lw s5, 0(s2)
+	sw s5, 0(s4)
+	sub s1, s1, 1
+	j loop
+
+end:    
     jalr    t2                          // Invoke sys_* function
     nop
     

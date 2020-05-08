@@ -471,18 +471,7 @@ int sys_ipc_can_multi_send(int sysno, u_int value, u_int srcva, u_int perm, int 
 		if ((r = envid2env((int)temp, &env, 0)) < 0) {
 			return r;
 		}
-		env->env_ipc_value = value;
-		env->env_ipc_from = curenv->env_id;
-		env->env_ipc_perm = perm;
-		env->env_ipc_recving = 0;
-		env->env_status = ENV_RUNNABLE;
-		if (srcva != 0) {
-			p = page_lookup(curenv->env_pgdir, srcva, &pte);
-			if (p == NULL) {
-				return -E_INVAL;
-			}
-			page_insert(env->env_pgdir, p, env->env_ipc_dstva, perm);
-		}
+		sys_ipc_can_send(sysno, (u_int)temp, value, srcva, perm);
 	}
 	va_end(ap);
 	return 0;
