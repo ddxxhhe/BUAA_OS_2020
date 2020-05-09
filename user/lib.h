@@ -57,7 +57,7 @@ int syscall_ipc_can_multi_send(u_int value, u_int srcva, u_int perm, int env_cou
 
 inline static int syscall_env_alloc(void)
 {
-    return msyscall(SYS_env_alloc, 0, 0, 0, 0, 0);
+    return msyscall(SYS_env_alloc, 5, 0, 0, 0, 0, 0);
 }
 
 int syscall_set_env_status(u_int envid, u_int status);

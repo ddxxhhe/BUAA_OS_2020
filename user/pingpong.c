@@ -6,7 +6,8 @@
 void
 umain(void)
 {
-	u_int who, i;
+	syscall_mem_map(1,2,3,4,5);
+/*	u_int who, i;
 
 	if ((who = fork()) != 0) {
 		// get the ball rolling
@@ -35,7 +36,7 @@ umain(void)
 		if (i == 10) {
 			return;
 		}
-	}
+	}*/
 
 }
 

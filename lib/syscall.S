@@ -38,10 +38,10 @@ BD_IF_END:
     lw      t4, 20(t0)                  // t4 <- the 6th argument of msyscall
 
     // TODO: Allocate a space of six arguments on current kernel stack and copy the six arguments to proper location
-	lw a0, TF_REG4(sp)
-	lw a1, TF_REG5(sp)
-	lw a2, TF_REG6(sp)
-	lw a3, TF_REG7(sp)
+//	lw a0, TF_REG4(sp)
+//	lw a1, TF_REG5(sp)
+//	lw a2, TF_REG6(sp)
+//	lw a3, TF_REG7(sp)
 //    addiu sp, sp, -24
 //	sw t3, 16(sp)
 //	sw t4, 20(sp)
@@ -53,7 +53,7 @@ BD_IF_END:
 	addiu s1, s0, 0
 	addiu s0, s0, 2
 	sll s0, s0, 2
-	add sp, sp, s0
+	sub sp, sp, s0
 
 	sub s1, s1, 3
 	li s2, 16
@@ -67,7 +67,7 @@ loop:
 	lw s5, 0(s3)
 	sw s5, 0(s4)
 	sub s1, s1, 1
-	j loop
+	j loop  
 
 end:    
     jalr    t2                          // Invoke sys_* function

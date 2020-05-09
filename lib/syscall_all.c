@@ -186,6 +186,7 @@ int sys_mem_alloc(int sysno, u_int envid, u_int va, u_int perm)
 int sys_mem_map(int sysno, u_int srcid, u_int srcva, u_int dstid, u_int dstva,
 				u_int perm)
 {
+	printf("%d %d %d %d %d %d\n", sysno, srcid, srcva, dstid, dstva, perm);
 	int r;
 	u_int round_srcva, round_dstva;
 	struct Env *srcenv;
