@@ -7,10 +7,12 @@ umain(void)
 	writef("\n@@@@ %x send %x,%x 0", syscall_getenvid(), who1, who2);
 	ipc_send_double(who1, who2, 0, 0, 0);
 	for (;;) {
-		writef("\n@@@@ %x got %d from %x",syscall_getenvid(), i, who1);
+//		writef("\n@@@@ %x got %d from %x",syscall_getenvid(), i, who1);
 		i = ipc_recv(&who1, 0, 0);
-		writef("\n@@@@ %x got %d from %x",syscall_getenvid(), i, who2);
+		writef("\n@@@@ %x got %d from %x", syscall_getenvid(), i, who1);
 		j = ipc_recv(&who2, 0, 0);
+		writef("\n@@@@ %x got %d from %x",syscall_getenvid(), j, who2);
+//		j = ipc_recv(&who2, 0, 0);
 		if (i == 5 && j == 5) {
 			return;
 		}
