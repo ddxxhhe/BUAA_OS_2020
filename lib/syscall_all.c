@@ -465,7 +465,7 @@ int sys_ipc_can_multi_send(int sysno, u_int value, u_int srcva, u_int perm, int 
 			return -E_IPC_NOT_RECV;
 		}
 	}
-//	va_end(ap);
+	va_end(ap);
 	va_start(ap, env_count);
 	for (i = 0; i < env_count; i++) {
 		temp = va_arg(ap, u_int);
