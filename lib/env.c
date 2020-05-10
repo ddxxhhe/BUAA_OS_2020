@@ -53,6 +53,7 @@ u_int mkenvid(struct Env *e)
  *  return 0 on success,and sets *penv to the environment.
  *  return -E_BAD_ENV on error,and sets *penv to NULL.
  */
+
 /*** exercise 3.3 ***/
 int envid2env(u_int envid, struct Env **penv, int checkperm)
 {
