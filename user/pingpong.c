@@ -11,9 +11,7 @@ umain(void)
 	if ((who = fork()) != 0) {
 		// get the ball rolling
 		writef("\n@@@@@send 0 from %x to %x\n", syscall_getenvid(), who);
-//		writef("aaa\n");
 		ipc_send(who, 0, 0, 0);
-//		writef("bbb\n");
 		//user_panic("&&&&&&&&&&&&&&&&&&&&&&&&m");
 	}
 
