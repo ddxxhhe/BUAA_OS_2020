@@ -59,7 +59,7 @@ ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 	}*/  
 	int offset_disk = 0;
 	int read_status = 0;
-	int ide_can_read;
+	int ide_can_read = 0;
 	int r;
 	while (offset_begin + offset < offset_end) {
         // error occurred, then panic.
@@ -79,7 +79,7 @@ ide_read(u_int diskno, u_int secno, void *dst, u_int nsecs)
 		if (ide_can_read == 0) {
 			user_panic("ide read failed!\n");
 		}
-		if ((r = syscall_read_dev(dst + offset, 0x13004000, 512)) != 0) {
+		if ((r = syscall_read_dev(dst + offset, 0x13004000, 0x200)) != 0) {
 			user_panic("read 512 bytes data failed!\n");
 		}
 		offset += 0x200;
@@ -139,7 +139,7 @@ ide_write(u_int diskno, u_int secno, void *src, u_int nsecs)
 	 }*/
    int offset_disk = 0;
 	int write_status = 1;
-	int ide_can_write;
+	int ide_can_write = 0;
 	int r;
 	
 	writef("diskno: %d\n", diskno);

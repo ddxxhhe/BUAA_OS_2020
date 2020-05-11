@@ -16,7 +16,7 @@ u_int
 diskaddr(u_int blockno)
 {
 	u_int offset;
-	if (super && blockno >= super->s_nblocks) {
+	if (super && blockno > super->s_nblocks) {
 		user_panic("diskaddr error");
 	}
 	offset = blockno * BY2BLK;
@@ -78,7 +78,7 @@ map_block(u_int blockno)
 		return 0;
 	}
     // Step 2: Alloc a page of memory for this block via syscall.
-	temp = syscall_mem_alloc(0, addr, PTE_V|PTE_R);
+	temp = syscall_mem_alloc(0, diskaddr(blockno), PTE_V|PTE_R);
 	return temp;
 }
 
@@ -101,7 +101,7 @@ unmap_block(u_int blockno)
 		write_block(blockno);
 	}
 	// Step 3: use 'syscall_mem_unmap' to unmap corresponding virtual memory.
-	r = syscall_mem_unmap(0, addr);
+	r = syscall_mem_unmap(0, diskaddr(blockno));
 	if (r < 0) {
 		user_panic("unmap_block failed\n");
 	}
@@ -213,12 +213,12 @@ void
 free_block(u_int blockno)
 {
 	// Step 1: Check if the parameter `blockno` is valid (`blockno` can't be zero).
-	if (blockno == 0 || (super != 0 && blockno >= super->s_nblocks)) {
-		return;
+	if (blockno == 0 || super == 0 || blockno >= super->s_nblocks) {
+		user_panic("free block error");
 	}
 	// Step 2: Update the flag bit in bitmap.
 	// you can use bit operation to update flags, such as  a |= (1 << n) .
-	bitmap[blockno/32] = bitmap[blockno/32] | (1 << (blockno%32));
+	bitmap[blockno / 32] = bitmap[blockno / 32] | (1 << (blockno % 32));
 }
 
 // Overview:
@@ -346,6 +346,9 @@ check_write_block(void)
 
 	// smash it
 	strcpy((char *)diskaddr(1), "OOPS!\n");
+
+//	writef("%s\n", diskaddr(1));
+
 	write_block(1);
 	user_assert(block_is_mapped(1));
 
@@ -353,8 +356,12 @@ check_write_block(void)
 	syscall_mem_unmap(0, diskaddr(1));
 	user_assert(!block_is_mapped(1));
 
+//	writef("%s",diskaddr(1));
 	// validate the data read from the disk.
 	read_block(1, 0, 0);
+
+	//writef("%s\n", diskaddr(1));
+//	writef("%s",diskaddr(1));
 	user_assert(strcmp((char *)diskaddr(1), "OOPS!\n") == 0);
 
 	// restore the super block.
@@ -546,21 +553,20 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 	struct File *f;
 
 	// Step 1: Calculate nblock: how many blocks this dir have.
-	nblock = ROUND(dir->f_size, BY2BLK) / BY2BLK;
+	nblock = dir->f_size / BY2BLK;
 	for (i = 0; i < nblock; i++) {
 		// Step 2: Read the i'th block of the dir.
 		// Hint: Use file_get_block.
 		if ((r = file_get_block(dir, i, &blk)) < 0) {
 			return r;
 		}
-
 		// Step 3: Find target file by file name in all files on this block.
 		// If we find the target file, set the result to *file and set f_dir field.
+		f = (struct File*)blk;
 		for (j = 0; j < FILE2BLK; j++) {
-			f = ((struct File *)blk) + j;
-			if (strcmp(f->f_name, name) == 0) {
-				f->f_dir = dir;
-				*file = f;
+			if (strcmp(f[j].f_name, name) == 0) {
+				f[j].f_dir = dir;
+				*file = &f[j];
 				return 0;
 			}
 		}

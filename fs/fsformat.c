@@ -204,8 +204,8 @@ int make_link_block(struct File *dirf, int nblk) {
 // Hint: 
 //      use make_link_block function
 struct File *create_file(struct File *dirf) {
-    struct File *dirblk;
-    int i, bno, found, j;
+    struct File *dirblk = NULL;
+    int i, bno = 0, found = 0, j;
     int nblk = dirf->f_size / BY2BLK;
     
     // Your code here
@@ -227,7 +227,7 @@ struct File *create_file(struct File *dirf) {
 
     // Step2: Find an unused pointer
 	bno = make_link_block(dirf, nblk);
-	return (struct File *)disk[bno].data;
+	return (struct File *)(disk[bno].data);
 
 }
 

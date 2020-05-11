@@ -58,6 +58,9 @@ open(const char *path, int mode)
 
 	// Step 4: Alloc memory, map the file content into memory.
 	for (i = 0; i < size; i += BY2BLK) {
+		if ((r = syscall_mem_alloc(0, va+i, PTE_V|PTE_R)) < 0) {
+			return r;
+		}
 		if ((r = fsipc_map(fileid, i, va + i)) < 0) {
 			return r;
 		}
