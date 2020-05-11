@@ -15,7 +15,12 @@ int block_is_free(u_int);
 u_int
 diskaddr(u_int blockno)
 {
-
+	u_int offset;
+	if (super && blockno >= super->s_nblocks) {
+		user_panic("diskaddr error");
+	}
+	offset = blockno * BY2BLK;
+	return DISKMAP + offset;
 }
 
 // Overview:
@@ -66,8 +71,15 @@ int
 map_block(u_int blockno)
 {
 	// Step 1: Decide whether this block has already mapped to a page of physical memory.
-
+	u_int addr;
+	int temp;
+	addr = block_is_mapped(blockno);
+	if (addr != 0) {
+		return 0;
+	}
     // Step 2: Alloc a page of memory for this block via syscall.
+	temp = syscall_mem_alloc(0, addr, PTE_V|PTE_R);
+	return temp;
 }
 
 // Overview:
@@ -76,15 +88,23 @@ void
 unmap_block(u_int blockno)
 {
 	int r;
-
+	u_int addr;
 	// Step 1: check if this block is mapped.
-
+	addr = block_is_mapped(blockno);
+	if (addr == 0) {
+		return;
+	}
 	// Step 2: use block_is_free，block_is_dirty to check block , 
 	//if this block is used(not free) and dirty, it needs to be synced to disk: write_block
 	//can't be unmap directly.
-
+	if (!block_is_free(blockno) && block_is_dirty(blockno)) {
+		write_block(blockno);
+	}
 	// Step 3: use 'syscall_mem_unmap' to unmap corresponding virtual memory.
-
+	r = syscall_mem_unmap(0, addr);
+	if (r < 0) {
+		user_panic("unmap_block failed\n");
+	}
 	// Step 4: validate result of this unmap operation.
 	user_assert(!block_is_mapped(blockno));
 }
@@ -193,9 +213,12 @@ void
 free_block(u_int blockno)
 {
 	// Step 1: Check if the parameter `blockno` is valid (`blockno` can't be zero).
-
+	if (blockno == 0 || (super != 0 && blockno >= super->s_nblocks)) {
+		return;
+	}
 	// Step 2: Update the flag bit in bitmap.
 	// you can use bit operation to update flags, such as  a |= (1 << n) .
+	bitmap[blockno/32] = bitmap[blockno/32] | (1 << (blockno%32));
 }
 
 // Overview:
@@ -523,15 +546,24 @@ dir_lookup(struct File *dir, char *name, struct File **file)
 	struct File *f;
 
 	// Step 1: Calculate nblock: how many blocks this dir have.
-
+	nblock = ROUND(dir->f_size, BY2BLK) / BY2BLK;
 	for (i = 0; i < nblock; i++) {
 		// Step 2: Read the i'th block of the dir.
 		// Hint: Use file_get_block.
-
+		if ((r = file_get_block(dir, i, &blk)) < 0) {
+			return r;
+		}
 
 		// Step 3: Find target file by file name in all files on this block.
 		// If we find the target file, set the result to *file and set f_dir field.
-		
+		for (j = 0; j < FILE2BLK; j++) {
+			f = ((struct File *)blk) + j;
+			if (strcmp(f->f_name, name) == 0) {
+				f->f_dir = dir;
+				*file = f;
+				return 0;
+			}
+		}
 	}
 
 	return -E_NOT_FOUND;

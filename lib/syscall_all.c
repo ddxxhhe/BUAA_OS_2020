@@ -5,6 +5,9 @@
 #include <pmap.h>
 #include <sched.h>
 
+
+#define PHYSADDR_OFFSET ((signed int)0xA0000000)
+
 extern char *KERNEL_SP;
 extern struct Env *curenv;
 
@@ -476,6 +479,26 @@ int sys_ipc_can_send(int sysno, u_int envid, u_int value, u_int srcva,
 int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
 {
         // Your code here
+		int num = 3;
+		u_int dev_start_addr[] = {0x10000000, 0x13000000, 0x15000000};
+		u_int dev_length[] = {0x20, 0x4200, 0x200};
+		u_int target_addr = dev + 0xa0000000;
+		int i;
+		int check = 0;
+		if (va >= ULIM) {
+			return -E_INVAL;
+		}
+		for (i = 0; i < num; i++) {
+			if (dev_start_addr[i] <= dev && dev + len - 1 < dev_start_addr[i] + dev_length[i]) {
+				check = 1;
+				break;
+			}
+		}
+		if (check == 0) {
+			return -E_INVAL;
+		}
+		bcopy((void *)va, (void *)target_addr, len);
+		return 0;
 }
 
 /* Overview:
@@ -497,4 +520,24 @@ int sys_write_dev(int sysno, u_int va, u_int dev, u_int len)
 int sys_read_dev(int sysno, u_int va, u_int dev, u_int len)
 {
         // Your code here
+		int num = 3;
+		u_int dev_start_addr[] = {0x10000000, 0x13000000, 0x15000000};
+		u_int dev_length[] = {0x20, 0x4200, 0x200};
+		u_int target_addr = dev + 0xa0000000;
+		int i;
+		int check = 0;
+		if (va >= ULIM) {
+			return -E_INVAL;
+		}
+		for (i = 0; i < num; i++) {
+			if (dev_start_addr[i] <= dev && dev + len - 1 < dev_start_addr[i] + dev_length[i]) {
+				check = 1;
+				break;
+			}
+		}
+		if (check == 0) {
+			return -E_INVAL;
+		}
+		bcopy((void *)target_addr, (void *)va, len);
+		return 0;
 }
