@@ -16,11 +16,11 @@ u_int
 diskaddr(u_int blockno)
 {
 	u_int offset;
-	if (super && blockno > super->s_nblocks) {
+	if (super && (blockno > super->s_nblocks)) {
 		user_panic("diskaddr error");
 	}
 	offset = blockno * BY2BLK;
-	return DISKMAP + offset;
+	return (DISKMAP + offset);
 }
 
 // Overview:
